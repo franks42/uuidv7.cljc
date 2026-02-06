@@ -75,9 +75,37 @@ com.github.franks42/uuidv7 {:mvn/version "0.1.0"}
 |---|---|---|
 | Clojure (JVM) | `java.util.UUID` | Yes |
 | Babashka | `java.util.UUID` | Yes |
-| ClojureScript | `cljs.core/UUID` | - |
-| nbb | `cljs.core/UUID` | - |
-| scittle | `cljs.core/UUID` | - |
+| nbb | `cljs.core/UUID` | Yes |
+| scittle | `cljs.core/UUID` | Yes |
+
+## Scittle (Browser) Usage
+
+To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scittle), load the `.cljc` source file via a `<script>` tag. Scittle v0.6.17+ handles `#?` reader conditionals in `.cljc` files correctly.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/scittle@0.7.30/dist/scittle.js"
+        type="application/javascript"></script>
+
+<!-- Load the library -->
+<script type="application/x-scittle"
+        src="/path/to/com/github/franks42/uuidv7/core.cljc"></script>
+
+<!-- Use it -->
+<script type="application/x-scittle">
+(require '[com.github.franks42.uuidv7.core :as uuidv7])
+(println (uuidv7/uuidv7))
+</script>
+```
+
+Alternatively, fetch the source via JavaScript and evaluate it explicitly:
+
+```javascript
+var src = await fetch("/path/to/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+scittle.core.eval_string(src);
+scittle.core.eval_string('(require \'[com.github.franks42.uuidv7.core :as uuidv7]) (println (uuidv7/uuidv7))');
+```
+
+**Note:** scittle does not expose the `uuid` constructor function (`(uuid "...")`) — use `parse-uuid` instead, which works on all targets and validates the input format.
 
 ## License
 
