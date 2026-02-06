@@ -165,7 +165,7 @@
      ;;   g3  = version 7 + rand_a     (4 hex)
      ;;   g4  = variant 10 + rand_b hi (4 hex)
      ;;   g5  = rand_b lo              (12 hex)
-     (uuid
+     (parse-uuid
        (str (to-hex (quot ts 65536)  8)                                ;; g1
             "-"
             (to-hex (rem ts 65536) 4)                                  ;; g2

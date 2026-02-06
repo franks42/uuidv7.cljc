@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>uuidv7.cljc — Scittle Tests</title>
+  <script src="https://cdn.jsdelivr.net/npm/scittle@0.7.30/dist/scittle.js" type="application/javascript"></script>
+</head>
+<body>
+  <h2>uuidv7.cljc — Scittle Test Results</h2>
+  <pre id="test-output" data-status="pending">Running tests…</pre>
+
+  <!--
+    All evaluation done via JS fetch + scittle.core.eval_string to ensure
+    reader conditionals in .cljc files are handled correctly.
+    Scittle's <script src="..."> loader does NOT enable reader conditionals.
+    Dependency order: shim → library → tests → runner.
+  -->
+  <script type="application/javascript">
+  (async function() {
+    try {
+      var evalClj = scittle.core.eval_string;
+
+      // 1. Load and evaluate clojure.test shim
+      var shimResp = await fetch("/test/runners/test_scittle/clojure_test_shim.cljs");
+      var shimSrc = await shimResp.text();
+      evalClj(shimSrc);
+
+      // 2. Load and evaluate library source (.cljc — needs reader conditionals)
+      var libResp = await fetch("/src/com/github/franks42/uuidv7/core.cljc");
+      var libSrc = await libResp.text();
+      evalClj(libSrc);
+
+      // 3. Load and evaluate test file (.cljc — needs reader conditionals)
+      var testResp = await fetch("/test/uuidv7/core_test.cljc");
+      var testSrc = await testResp.text();
+      evalClj(testSrc);
+
+      // 4. Run tests and write results to DOM
+      evalClj(
+        '(ns test-runner (:require [clojure.test :as t]))\n' +
+        '(let [{:keys [pass fail error]} (t/run-tests (quote uuidv7.core-test))\n' +
+        '      output-el (js/document.getElementById "test-output")\n' +
+        '      text (clojure.string/join "\\n" @t/*output*)\n' +
+        '      status (if (and (zero? fail) (zero? error)) "pass" "fail")]\n' +
+        '  (set! (.-textContent output-el) text)\n' +
+        '  (.setAttribute output-el "data-status" status))'
+      );
+    } catch(e) {
+      var el = document.getElementById("test-output");
+      el.textContent = "ERROR: " + e.message + "\n\n" + (e.stack || "");
+      el.setAttribute("data-status", "fail");
+    }
+  })();
+  </script>
+</body>
+</html>

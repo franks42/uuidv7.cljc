@@ -22,6 +22,10 @@
   {:extra-paths ["test"]
    ;; Run with: nbb --classpath src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
    }
+  :test-scittle
+  {;; Run with: python3 -m http.server 8765
+   ;; Then open: http://localhost:8765/test/runners/test_scittle/index.html
+   }
   :build
   {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
    :ns-default build}}}
