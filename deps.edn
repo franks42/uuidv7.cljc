@@ -18,6 +18,10 @@
   {:extra-paths ["test" "test/runners"]
    :extra-deps {com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
    :main-opts ["-e" "(require 'test-bb-jar.core) (test-bb-jar.core/-main nil)"]}
+  :test-nbb
+  {:extra-paths ["test"]
+   ;; Run with: nbb --classpath src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+   }
   :build
   {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
    :ns-default build}}}

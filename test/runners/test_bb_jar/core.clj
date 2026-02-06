@@ -8,7 +8,7 @@
     (if (.exists (io/file jar-path))
       (do
         (println "Running tests against JAR:" jar-path)
-        (load-file "test/uuidv7/core_test.clj")
+        (load-file "test/uuidv7/core_test.cljc")
         (run-tests 'uuidv7.core-test))
       (do
         (println "ERROR: JAR not found at" jar-path)

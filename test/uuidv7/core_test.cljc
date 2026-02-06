@@ -38,7 +38,8 @@
   (testing "extract-ts returns the embedded timestamp"
     (let [u (uuidv7/uuidv7)
           ts (uuidv7/extract-ts u)
-          now (System/currentTimeMillis)]
+          now #?(:clj  (System/currentTimeMillis)
+                 :cljs (js/Date.now))]
       ;; Timestamp should be within last second
       (is (<= (- now 1000) ts now))))
 
@@ -81,7 +82,7 @@
   (testing "extract-inst returns a Date"
     (let [u (uuidv7/uuidv7)
           inst (uuidv7/extract-inst u)]
-      (is (instance? java.util.Date inst)))))
+      (is (instance? #?(:clj java.util.Date :cljs js/Date) inst)))))
 
 (deftest test-monotonicity
   (testing "make-generator creates independent generator"
