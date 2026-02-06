@@ -1,0 +1,23 @@
+{:deps
+ {org.clojure/clojure {:mvn/version "1.12.4"}}
+ :aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}}}
+  :test-clj
+  {:extra-paths ["test"]
+   :extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}}}
+  :test-clj-jar
+  {:extra-paths ["test" "test/runners"]
+   :extra-deps {com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
+   :main-opts ["-e" "(require 'test-clj-jar.core) (test-clj-jar.core/-main nil)"]}
+  :test-bb
+  {:extra-paths ["test"]
+   :extra-deps {org.babashka/babashka {:mvn/version "1.12.214"}}}
+  :test-bb-jar
+  {:extra-paths ["test" "test/runners"]
+   :extra-deps {com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
+   :main-opts ["-e" "(require 'test-bb-jar.core) (test-bb-jar.core/-main nil)"]}
+  :build
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
+   :ns-default build}}}
