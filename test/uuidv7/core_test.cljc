@@ -122,3 +122,39 @@
       (is (= 36 (count s)))
       (is (= 4 (count (re-seq #"-" s))))
       (is (re-matches #"[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}" s)))))
+
+(deftest test-string-sorting-order
+  (testing "UUIDv7 string representations sort in generation order"
+    (let [uuids (repeatedly 100 uuidv7/uuidv7)
+          strings (map str uuids)]
+      (is (= strings (sort strings))
+          "String sort should preserve generation order"))))
+
+#?(:clj
+   (deftest test-concurrent-generation
+     (testing "Shared generator produces unique UUIDs under contention"
+       (let [n-threads  10
+             n-per-thread 1000
+             results    (mapv deref
+                          (mapv (fn [_]
+                                  (future
+                                    (doall (repeatedly n-per-thread uuidv7/uuidv7))))
+                                (range n-threads)))
+             all-uuids  (apply concat results)]
+         (is (= (* n-threads n-per-thread) (count all-uuids))
+             "Should generate expected number of UUIDs")
+         (is (= (count all-uuids) (count (set all-uuids)))
+             "All UUIDs should be unique")))
+
+     (testing "Per-thread generators each produce monotonic sequences"
+       (let [n-threads  10
+             n-per-thread 1000
+             results    (mapv deref
+                          (mapv (fn [_]
+                                  (future
+                                    (let [gen (uuidv7/make-generator)]
+                                      (doall (repeatedly n-per-thread gen)))))
+                                (range n-threads)))]
+         (doseq [thread-uuids results]
+           (is (every? true? (map uuid<? thread-uuids (rest thread-uuids)))
+               "Each thread's sequence should be strictly monotonic"))))))

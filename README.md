@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.4.1"}
+com.github.franks42/uuidv7 {:mvn/version "0.4.2"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.4.1"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.4.2"}}}
 ```
 
 ## Usage
@@ -48,8 +48,8 @@ com.github.franks42/uuidv7 {:mvn/version "0.4.1"}
 ;; Extract the 74-bit counter as [rand-a rand-b-hi rand-b-lo]
 (uuidv7/extract-counter u)
 
-;; Extract the counter as a 19-char hex string (string-comparable)
-(uuidv7/extract-counter-hex u)
+;; UUIDv7 strings sort in generation order — use (str u) as a sortable key
+(sort (map str (repeatedly 5 uuidv7/uuidv7)))
 
 ;; Independent generator with its own monotonic state (e.g. per-thread)
 (def gen (uuidv7/make-generator))
@@ -66,7 +66,6 @@ com.github.franks42/uuidv7 {:mvn/version "0.4.1"}
 | `(extract-ts uuid)` | Extract Unix epoch timestamp (ms) from a UUIDv7 |
 | `(extract-inst uuid)` | Extract creation timestamp as a Date/inst |
 | `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` |
-| `(extract-counter-hex uuid)` | Extract the 74-bit counter as a 19-char hex string |
 | `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` |
 
 ## Platform Support
@@ -89,7 +88,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.1/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.2/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -101,7 +100,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.1/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.2/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");

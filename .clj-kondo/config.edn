@@ -1,0 +1,3 @@
+{:linters
+ {:unused-private-var
+  {:exclude [com.github.franks42.uuidv7.core/to-hex]}}}

@@ -81,7 +81,7 @@
   "Random increment in [1, 2^31]. Safe on all platforms (within JS
    integer precision) and large enough to preserve unpredictability."
   []
-  (let [hex (subs (str/replace (str (random-uuid)) "-" "") 0 8)]
+  (let [hex (subs (str (random-uuid)) 0 8)]
     (inc (bit-and (parse-hex hex) 0x7FFFFFFF))))
 
 ;; ---------------------------------------------------------------------------
@@ -226,16 +226,6 @@
      (+ (* (bit-and (parse-hex (subs s 19 23)) 0x3FFF) 65536)     ;; rand-b-hi: 14 bits from g4
         (parse-hex (subs s 24 28)))                                ;;          + 16 bits from g5 hi = 30 bits
      (parse-hex (subs s 28 36))]))                                 ;; rand-b-lo: 8 hex = 32 bits
-
-(defn extract-counter-hex
-  "Extract the 74-bit monotonic counter from a UUIDv7 as a 19-character
-   zero-padded lowercase hex string.
-
-   String comparison preserves the same total order as the original UUID.
-   Useful for storage in systems that prefer string keys."
-  [uuid]
-  (let [[a bh bl] (extract-counter uuid)]
-    (str (to-hex a 3) (to-hex bh 8) (to-hex bl 8))))
 
 (defn extract-key
   "Extract a sortable composite key [ts rand-a rand-b-hi rand-b-lo]

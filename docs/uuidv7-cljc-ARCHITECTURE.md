@@ -197,17 +197,6 @@ Extract the 74-bit monotonic counter as a three-element vector `[rand-a rand-b-h
 
 The vector compares lexicographically, preserving the same total order as the UUID itself. Same shape on all platforms — the three-field split (12 + 30 + 32 bits) keeps each value within JS safe-integer range while maintaining correct comparison semantics everywhere.
 
-### `(extract-counter-hex uuid)`
-
-Extract the 74-bit monotonic counter as a 19-character zero-padded hex string.
-
-```clojure
-(extract-counter-hex #uuid "01950a3e-8b2f-7a1c-8e4d-3f2b1a0c9d8e")
-;=> "b1c0e4d3f2b1a0c9d8e"
-```
-
-String comparison preserves the same total order. Useful for storage in systems that prefer string keys, or for interop with non-Clojure systems.
-
 ### `(extract-key uuid)`
 
 Extract a sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` — the full (timestamp, counter) tuple.
@@ -265,9 +254,9 @@ We chose **consistent shape across all platforms**: `[rand-a rand-b-hi rand-b-lo
 
 The three-element vector is harmless on JVM (the split is unnecessary but costs nothing) and the consistency means portable code just works.
 
-### Hex String Alternative
+### UUIDv7 Strings as Sortable Keys
 
-`extract-counter-hex` returns the same 74 bits as a 19-character hex string. This is useful when you need a single comparable scalar — for string-keyed stores, JSON serialization, or interop with non-Clojure systems. String comparison preserves the same total order.
+In many cases, you don't need to extract components at all — **`(str uuid)` is already a perfectly sortable key** that preserves generation order. The timestamp occupies the high bits of the UUID, so string comparison (`compare`, alphabetical sort, database indexing) yields the same temporal and monotonic ordering as the original UUIDs. This works across all platforms, serialization formats, and storage systems that support string keys.
 
 ---
 

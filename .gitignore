@@ -16,4 +16,5 @@ pom.xml.asc
 .claude/
 .lsp/
 .clj-kondo/
+!.clj-kondo/config.edn
 .playwright-mcp/
