@@ -6,7 +6,8 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero dependencies, runs 
 
 ```
 src/com/github/franks42/uuidv7/core.cljc   # the library (single file)
-test/uuidv7/core_test.cljc                  # shared test suite (8 tests, 45 assertions)
+test/uuidv7/core_test.cljc                  # shared test suite
+.clj-kondo/config.edn                      # suppress false positive for to-hex
 test/runners/                               # per-platform test runners
 build.clj                                   # tools.build script (jar, install, deploy)
 deps.edn                                    # aliases for all test targets + build
@@ -14,7 +15,9 @@ deps.edn                                    # aliases for all test targets + bui
 
 ## Running Tests
 
-All platforms should produce: `Ran 8 tests containing 45 assertions. 0 failures, 0 errors.`
+Expected results:
+- **CLJ/BB**: `Ran 10 tests containing 58 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
+- **CLJS/nbb/scittle**: `Ran 9 tests containing 46 assertions. 0 failures, 0 errors.`
 
 ### Clojure (JVM)
 ```bash
@@ -67,8 +70,9 @@ The pom.xml has zero runtime dependencies (`:root nil` in `create-basis`).
 
 ## Key Design Decisions
 
-- **Reader conditionals**: Only two branches — `:clj` (JVM + BB) and `:cljs` (CLJS + nbb + scittle)
-- **`:scittle` feature flag**: `#?(:scittle (in-ns 'user))` at end of core.cljc resets namespace so callers can use bare `(require ...)`. Invisible to all other platforms.
+- **Reader conditionals**: Two main branches — `:clj` (JVM + BB) and `:cljs` (CLJS + nbb + scittle). A third `:scittle` branch at end of core.cljc resets namespace.
+- **`:scittle` feature flag**: `#?(:scittle (in-ns 'user))` resets namespace so callers can use bare `(require ...)`. Invisible to all other platforms.
 - **Three-field counter split**: 12 + 30 + 32 bits keeps each value within JS safe-integer range
 - **`random-uuid` as CSPRNG**: The one crypto-random primitive available on all five platforms
-- **`parse-uuid` over `uuid`**: `uuid` constructor is not available in scittle; `parse-uuid` works everywhere
+- **`parse-uuid` over `uuid`**: `uuid` constructor exists in ClojureScript but is not mapped to the `uuid` var in scittle; `parse-uuid` works everywhere
+- **UUIDv7 strings are sortable keys**: `(str uuid)` preserves generation order under string comparison — no extraction needed for sorting
