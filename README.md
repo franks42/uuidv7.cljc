@@ -29,8 +29,8 @@ nbb cannot read JAR files, so use a git dependency instead:
 ```clojure
 {:deps {com.github.franks42/uuidv7
         {:git/url "https://github.com/franks42/uuidv7.cljc"
-         :git/tag "v0.4.2"
-         :git/sha "3f920e6"}}}
+         :git/tag "v0.5.0"
+         :git/sha "c551762"}}}
 ```
 
 ## Usage
@@ -107,7 +107,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.2/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.5.0/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -119,7 +119,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.2/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.5.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");
