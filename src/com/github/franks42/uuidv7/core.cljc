@@ -255,3 +255,10 @@
   (let [ts (extract-ts uuid)]
     #?(:clj  (java.util.Date. (long ts))
        :cljs (js/Date. ts))))
+
+;; When loaded by scittle (SCI), evaluating the ns form leaves *ns*
+;; set to this library's namespace.  Reset to 'user so that callers
+;; can use a plain (require … :as alias) instead of a full ns form.
+;; The :scittle reader conditional is only active in scittle — it is
+;; invisible to CLJ, CLJS, BB, and nbb.
+#?(:scittle (in-ns 'user))
