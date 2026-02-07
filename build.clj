@@ -10,7 +10,7 @@
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'com.github.franks42/uuidv7)
-(def version "0.4.0")
+(def version "0.4.1")
 (def class-dir "target/classes")
 (def jar-file "target/uuidv7.jar")
 (def basis (delay (b/create-basis {:project "deps.edn" :root nil})))
