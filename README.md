@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.4.2"}
+com.github.franks42/uuidv7 {:mvn/version "0.5.0"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.4.2"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.5.0"}}}
 ```
 
 ### nbb (nbb.edn)
@@ -65,6 +65,10 @@ nbb cannot read JAR files, so use a git dependency instead:
 ;; Validate UUID version before extraction
 (uuidv7/uuidv7? u)  ;=> true if version 7
 
+;; Extraction functions require a UUIDv7. Use uuidv7? to check first:
+(when (uuidv7/uuidv7? u)
+  (uuidv7/extract-ts u))  ;=> Safe to call after validation
+
 ;; Independent generator with its own monotonic state (e.g. per-thread)
 (def gen (uuidv7/make-generator))
 (gen)
@@ -78,10 +82,10 @@ nbb cannot read JAR files, so use a git dependency instead:
 | `(uuidv7)` | Generate a UUIDv7 with monotonic sub-millisecond ordering |
 | `(make-generator)` | Create an independent generator with its own monotonic state |
 | `(uuidv7? uuid)` | Check if a UUID is version 7 |
-| `(extract-ts uuid)` | Extract Unix epoch timestamp (ms) from a UUIDv7 |
-| `(extract-inst uuid)` | Extract creation timestamp as a Date/inst |
-| `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` |
-| `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` |
+| `(extract-ts uuid)` | Extract Unix epoch timestamp (ms) from a UUIDv7 (throws if not v7) |
+| `(extract-inst uuid)` | Extract creation timestamp as a Date/inst (throws if not v7) |
+| `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
+| `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
 
 ## Platform Support
 

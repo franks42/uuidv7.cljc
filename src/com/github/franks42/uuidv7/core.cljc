@@ -25,9 +25,10 @@
    ## UUID Validation
 
    The extraction functions (`extract-ts`, `extract-counter`, `extract-key`,
-   `extract-inst`) require a UUIDv7. Use `uuidv7?` to validate:
+   `extract-inst`) require a UUIDv7. Use `uuidv7?` to validate first:
 
-     (uuidv7/uuidv7? u)  ;=> true if version 7
+     (when (uuidv7/uuidv7? u)
+       (uuidv7/extract-ts u))  ;=> Safe to call after validation
 
    Passing a non-v7 UUID to an extraction function will throw an AssertionError."
   (:require [clojure.string :as str])
