@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.1.0"}
+com.github.franks42/uuidv7 {:mvn/version "0.4.0"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.1.0"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.4.0"}}}
 ```
 
 ## Usage
@@ -74,6 +74,7 @@ com.github.franks42/uuidv7 {:mvn/version "0.1.0"}
 | Platform | UUID type | Tested |
 |---|---|---|
 | Clojure (JVM) | `java.util.UUID` | Yes |
+| ClojureScript (compiled) | `cljs.core/UUID` | Yes |
 | Babashka | `java.util.UUID` | Yes |
 | nbb | `cljs.core/UUID` | Yes |
 | scittle | `cljs.core/UUID` | Yes |

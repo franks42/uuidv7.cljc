@@ -1,5 +1,4 @@
-{:deps
- {org.clojure/clojure {:mvn/version "1.12.4"}}
+{:deps {}
  :aliases
  {:test
   {:extra-paths ["test"]
@@ -9,23 +8,34 @@
    :extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}}}
   :test-clj-jar
   {:extra-paths ["test" "test/runners"]
-   :extra-deps {com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
+   :extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
    :main-opts ["-e" "(require 'test-clj-jar.core) (test-clj-jar.core/-main nil)"]}
   :test-bb
   {:extra-paths ["test"]
    :extra-deps {org.babashka/babashka {:mvn/version "1.12.214"}}}
   :test-bb-jar
   {:extra-paths ["test" "test/runners"]
-   :extra-deps {com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
+   :extra-deps {org.clojure/clojure {:mvn/version "1.12.4"}
+                com.github.franks42/uuidv7 {:local/root "target/uuidv7.jar"}}
    :main-opts ["-e" "(require 'test-bb-jar.core) (test-bb-jar.core/-main nil)"]}
   :test-nbb
   {:extra-paths ["test"]
    ;; Run with: nbb --classpath src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
    }
+  :test-cljs
+  {:extra-paths ["test" "test/runners"]
+   :extra-deps {org.clojure/clojurescript {:mvn/version "1.11.132"}}
+   :main-opts ["-m" "cljs.main"
+               "--target" "node"
+               "--output-dir" "target/cljs-test-out"
+               "--output-to" "target/cljs-test-out/test-cljs.js"
+               "-c" "test-cljs.core"]}
   :test-scittle
   {;; Run with: python3 -m http.server 8765
    ;; Then open: http://localhost:8765/test/runners/test_scittle/index.html
    }
   :build
-  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}}
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.6"}
+          slipset/deps-deploy {:mvn/version "0.2.2"}}
    :ns-default build}}}

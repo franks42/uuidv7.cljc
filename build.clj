@@ -4,14 +4,16 @@
    Usage:
      clojure -T:build jar      ; Create JAR
      clojure -T:build install  ; Install to local Maven repo (~/.m2/repository)
+     clojure -T:build deploy   ; Build JAR and deploy to Clojars
      clojure -T:build clean    ; Clean build artifacts"
-  (:require [clojure.tools.build.api :as b]))
+  (:require [clojure.tools.build.api :as b]
+            [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'com.github.franks42/uuidv7)
-(def version "0.1.0")
+(def version "0.4.0")
 (def class-dir "target/classes")
 (def jar-file "target/uuidv7.jar")
-(def basis (delay (b/create-basis {:project "deps.edn"})))
+(def basis (delay (b/create-basis {:project "deps.edn" :root nil})))
 
 (defn clean [_]
   (println "Cleaning target directory...")
@@ -32,12 +34,18 @@
                 :lib lib
                 :version version
                 :basis @basis
+                :src-dirs ["src"]
                 :pom-data [[:description "Portable UUIDv7 generator for Clojure, ClojureScript, Babashka, nbb, and scittle"]
                            [:url "https://github.com/franks42/uuidv7.cljc"]
                            [:licenses
                             [:license
                              [:name "EPL-2.0"]
-                             [:url "https://www.eclipse.org/legal/epl-2.0/"]]]]})
+                             [:url "https://www.eclipse.org/legal/epl-2.0/"]]]
+                           [:scm
+                            [:url "https://github.com/franks42/uuidv7.cljc"]
+                            [:connection "scm:git:https://github.com/franks42/uuidv7.cljc.git"]
+                            [:developerConnection "scm:git:ssh://git@github.com/franks42/uuidv7.cljc.git"]
+                            [:tag (str "v" version)]]]})
 
   ;; Create JAR
   (b/jar {:class-dir class-dir
@@ -57,3 +65,9 @@
   (println)
   (println "To use in deps.edn:")
   (println (format "  %s {:mvn/version \"%s\"}" lib version)))
+
+(defn deploy [_]
+  (jar nil)
+  (dd/deploy {:installer :remote
+              :artifact (b/resolve-path jar-file)
+              :pom-file (b/pom-path {:lib lib :class-dir class-dir})}))
