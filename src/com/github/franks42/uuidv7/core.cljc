@@ -8,19 +8,28 @@
    - No blocking, no spinning, no overflow in practice
 
    Usage:
-     (require '[com.github.franks42.uuidv7.core :refer [uuidv7]])
-     (uuidv7)  ;=> #uuid \"0195xxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx\"
+     (require '[com.github.franks42.uuidv7.core :as uuidv7])
+     (uuidv7/uuidv7)  ;=> #uuid \"0195xxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx\"
 
      ;; Extract embedded data:
-     (extract-ts   u)  ;=> 1738934578991        (ms since epoch)
-     (extract-inst u)  ;=> #inst \"2025-02-07...\" (as Date)
-     (extract-key  u)  ;=> [ts a bh bl]          (sortable composite key)
+     (uuidv7/extract-ts   u)  ;=> 1738934578991        (ms since epoch)
+     (uuidv7/extract-inst u)  ;=> #inst \"2025-02-07...\" (as Date)
+     (uuidv7/extract-key  u)  ;=> [ts a bh bl]          (sortable composite key)
 
    The 74-bit counter space (~1.9 * 10^22 values per millisecond)
    is effectively inexhaustible. On each new millisecond the counter
    reseeds with fresh random bits. Within the same millisecond it
    increments by a random amount (1 to 2^31), preserving both
-   monotonicity and unpredictability."
+   monotonicity and unpredictability.
+
+   ## UUID Validation
+
+   The extraction functions (`extract-ts`, `extract-counter`, `extract-key`,
+   `extract-inst`) require a UUIDv7. Use `uuidv7?` to validate:
+
+     (uuidv7/uuidv7? u)  ;=> true if version 7
+
+   Passing a non-v7 UUID to an extraction function will throw an AssertionError."
   (:require [clojure.string :as str])
   #?(:clj (:import [java.util UUID])))
 
@@ -178,6 +187,20 @@
             (to-hex rand-b-lo 8)))))                                    ;; g5 lo
 
 ;; ---------------------------------------------------------------------------
+;; UUID validation
+;; ---------------------------------------------------------------------------
+
+(defn uuidv7?
+  "Check if a UUID is version 7 (timestamp-first).
+   Accepts UUID objects, strings, or any type that can be converted to string."
+  [uuid]
+  (let [s (str uuid)]
+    ;; Version is at position 14 (0-indexed), must be '7'
+    ;; Variant bits are at position 19 (first char of 4th group), must be 8, 9, a, or b
+    (and (= "7" (subs s 14 15))
+         (contains? #{"8" "9" "a" "b"} (subs s 19 20)))))
+
+;; ---------------------------------------------------------------------------
 ;; Public API
 ;; ---------------------------------------------------------------------------
 
@@ -206,8 +229,11 @@
 
 (defn extract-ts
   "Extract the Unix epoch timestamp (milliseconds) from a UUIDv7.
-   Works with any UUID type or UUID string."
+   Works with any UUID type or UUID string.
+
+   Throws AssertionError if the UUID is not version 7."
   [uuid]
+  (assert (uuidv7? uuid) "extract-ts: UUID is not version 7")
   (let [s (str uuid)]
     (parse-hex (str (subs s 0 8) (subs s 9 13)))))
 
@@ -219,8 +245,11 @@
    as the original UUID. Suitable as a composite key component:
      [(extract-ts u) (extract-counter u)]
 
-   Consistent shape on all platforms (JVM and JS)."
+   Consistent shape on all platforms (JVM and JS).
+
+   Throws AssertionError if the UUID is not version 7."
   [uuid]
+  (assert (uuidv7? uuid) "extract-counter: UUID is not version 7")
   (let [s (str uuid)]
     [(parse-hex (subs s 15 18))                                   ;; rand-a:    3 hex = 12 bits
      (+ (* (bit-and (parse-hex (subs s 19 23)) 0x3FFF) 65536)     ;; rand-b-hi: 14 bits from g4
@@ -234,13 +263,17 @@
    The four-element vector compares lexicographically with the same
    total order as the original UUID. Useful when you want the
    (timestamp, counter) tuple as a map key or sort key without
-   carrying the UUID itself."
+   carrying the UUID itself.
+
+   Throws AssertionError if the UUID is not version 7."
   [uuid]
   (into [(extract-ts uuid)] (extract-counter uuid)))
 
 (defn extract-inst
   "Extract the creation timestamp from a UUIDv7 as a Date/inst.
-   Useful for logging, auditing, and debugging."
+   Useful for logging, auditing, and debugging.
+
+   Throws AssertionError if the UUID is not version 7."
   [uuid]
   (let [ts (extract-ts uuid)]
     #?(:clj  (java.util.Date. (long ts))
