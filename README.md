@@ -22,6 +22,17 @@ com.github.franks42/uuidv7 {:mvn/version "0.4.2"}
 {:deps {com.github.franks42/uuidv7 {:mvn/version "0.4.2"}}}
 ```
 
+### nbb (nbb.edn)
+
+nbb cannot read JAR files, so use a git dependency instead:
+
+```clojure
+{:deps {com.github.franks42/uuidv7
+        {:git/url "https://github.com/franks42/uuidv7.cljc"
+         :git/tag "v0.4.2"
+         :git/sha "3f920e6"}}}
+```
+
 ## Usage
 
 ```clojure

@@ -37,7 +37,21 @@ node target/cljs-test-out/test-cljs.js  # run
 
 ### nbb
 ```bash
-nbb --classpath src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+nbb -cp src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+```
+
+### nbb (against Clojars via nbb.edn git dep)
+nbb cannot read JAR files. To test against the published source, create an `nbb.edn`
+with a git dependency and run from that directory:
+```clojure
+;; nbb.edn
+{:deps {com.github.franks42/uuidv7
+        {:git/url "https://github.com/franks42/uuidv7.cljc"
+         :git/tag "v0.4.2"
+         :git/sha "3f920e6"}}}
+```
+```bash
+nbb -cp test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 ```
 
 ### Scittle (browser)
