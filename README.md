@@ -89,11 +89,11 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="/path/to/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.0/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
-(require '[com.github.franks42.uuidv7.core :as uuidv7])
+(ns myapp (:require [com.github.franks42.uuidv7.core :as uuidv7]))
 (println (uuidv7/uuidv7))
 </script>
 ```
@@ -101,9 +101,10 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("/path/to/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.4.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
-scittle.core.eval_string('(require \'[com.github.franks42.uuidv7.core :as uuidv7]) (println (uuidv7/uuidv7))');
+scittle.core.eval_string("(ns myapp (:require [com.github.franks42.uuidv7.core :as uuidv7]))");
+scittle.core.eval_string("(println (uuidv7/uuidv7))");
 ```
 
 **Note:** scittle does not expose the `uuid` constructor function (`(uuid "...")`) — use `parse-uuid` instead, which works on all targets and validates the input format.
