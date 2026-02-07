@@ -65,7 +65,29 @@ python3 -m http.server 8765  # from project root
 `<script src="file.cljc">` uses the browser's normal cache — edits are NOT picked up
 without a cache-bust (query param `?v=2` or clearing via Playwright CDP).
 
-### JAR-based tests
+### Clojars-based tests
+Test against the published Clojars artifact (excludes local `src` from classpath):
+```bash
+# CLJ against Clojars
+clojure -Sdeps '{:paths ["test"] :deps {com.github.franks42/uuidv7 {:mvn/version "0.4.2"} org.clojure/clojure {:mvn/version "1.12.4"}}}' -M -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+
+# BB against Clojars
+bb -cp "$(clojure -Sdeps '{:paths [] :deps {com.github.franks42/uuidv7 {:mvn/version "0.4.2"}}}' -Spath):test" -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+
+# CLJS against Clojars (compile + run)
+clojure -Sdeps '{:paths ["test" "test/runners"] :deps {org.clojure/clojure {:mvn/version "1.12.4"} org.clojure/clojurescript {:mvn/version "1.11.132"} com.github.franks42/uuidv7 {:mvn/version "0.4.2"}}}' -M -m cljs.main --target node --output-dir target/cljs-clojars-test --output-to target/cljs-clojars-test/test-cljs.js -c test-cljs.core
+node target/cljs-clojars-test/test-cljs.js
+```
+
+**Note:** If `~/.m2/repository` has a locally-installed copy (from `clojure -T:build install`),
+delete it first to ensure you're testing the real Clojars artifact:
+```bash
+rm -rf ~/.m2/repository/com/github/franks42/uuidv7/0.4.2/
+```
+Verify with: `cat ~/.m2/repository/com/github/franks42/uuidv7/0.4.2/_remote.repositories`
+— it should show `>clojars=` (not empty after `>=`).
+
+### JAR-based tests (local build)
 ```bash
 clojure -T:build jar      # build JAR first
 clojure -M:test-clj-jar   # test CLJ against JAR
