@@ -137,7 +137,7 @@ The UUIDv7 bit layout (128 bits total):
 
 **JVM path**: Computes two `long` values (`msb`, `lsb`) and calls `java.util.UUID.`'s two-argument constructor directly. No string allocation or parsing.
 
-**CLJS path**: Builds the 32-character hex string with dashes and passes it to `uuid` (ClojureScript's UUID constructor). Uses `quot`/`rem` for the timestamp split to stay within safe-integer range.
+**CLJS path**: Builds the 32-character hex string with dashes and passes it to `parse-uuid`. Uses `quot`/`rem` for the timestamp split to stay within safe-integer range. Note: the `uuid` constructor function exists in ClojureScript but is not mapped to the `uuid` var in scittle — a one-liner fix in scittle's core would resolve this, but `parse-uuid` works on all platforms and is the safer portable choice.
 
 Both paths produce platform-native UUID types that print as `#uuid "..."`, compare correctly, and work with all standard serialization.
 
@@ -247,7 +247,7 @@ Particularly useful for logging and audit — you can reconstruct *when* any ent
 | nbb           | `cljs.core/UUID`  | crypto.getRandomValues | ✓ |
 | Scittle/SCI   | `cljs.core/UUID`  | crypto.getRandomValues | ✓ |
 
-The `.cljc` reader conditionals have exactly two branches: `:clj` (covers JVM + Babashka) and `:cljs` (covers ClojureScript + nbb + Scittle). No external dependencies.
+The `.cljc` reader conditionals have two main branches: `:clj` (covers JVM + Babashka) and `:cljs` (covers ClojureScript + nbb + Scittle). A third branch, `:scittle`, is used solely at the end of `core.cljc` to reset `*ns*` back to `user` after the library loads — this is invisible to all other platforms. No external dependencies.
 
 ---
 
