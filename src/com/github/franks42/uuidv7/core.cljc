@@ -34,11 +34,11 @@
   (:require [clojure.string :as str])
   #?(:clj (:import [java.util UUID])))
 
-(def version
-  "Version of this library. Updated at release time; matches the
-  Maven coord on Clojars and the version reported by `bin/uuidv7
-  --version`."
-  "0.6.0")
+;; Version of this library. Updated at release time; matches the
+;; Maven coord on Clojars and the version reported by bin/uuidv7
+;; --version. Keep this as a single-line def — the release workflow
+;; greps for the version constant and breaks on multi-line forms.
+(def version "0.6.0")
 
 ;; ---------------------------------------------------------------------------
 ;; Platform helpers
