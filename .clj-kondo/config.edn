@@ -1,3 +1,10 @@
 {:linters
  {:unused-private-var
-  {:exclude [com.github.franks42.uuidv7.core/to-hex]}}}
+  {:exclude [com.github.franks42.uuidv7.core/to-hex]}
+
+  ;; test/runners/test_scittle/clojure_test_shim.cljs intentionally
+  ;; declares (ns clojure.test) to provide a Scittle-compatible shim.
+  ;; The "namespace name does not match file name" check is correct
+  ;; in general but a false positive for this specific case.
+  :namespace-name-mismatch
+  {:level :off}}}

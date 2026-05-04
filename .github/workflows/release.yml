@@ -1,0 +1,153 @@
+name: release
+
+# Triggered when a `vX.Y.Z` tag is pushed. Two artifacts go out:
+#
+#   1. uuidv7 library JAR  → Clojars (com.github.franks42/uuidv7)
+#   2. uuidv7 CLI script   → GitHub Release asset (uuidv7-vX.Y.Z)
+#
+# The CLI references the library via Maven coord, so the library
+# MUST be on Clojars before the CLI artifact is reachable to end
+# users. We deploy the library first, wait for Clojars indexing,
+# smoke-test the CLI in a clean directory (forcing add-deps to
+# resolve from Clojars), then upload the CLI as a release asset.
+#
+# Required secrets:
+#   CLOJARS_USERNAME, CLOJARS_PASSWORD — Clojars deploy token.
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install bb, clj, clj-kondo, cljfmt
+        uses: DeLaGuardo/setup-clojure@13.6.0
+        with:
+          bb: 'latest'
+          cli: 'latest'
+          clj-kondo: 'latest'
+          cljfmt: 'latest'
+
+      - name: Extract version from tag
+        id: ver
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG"        >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse to release a non-stable version
+        run: bb release-check
+
+      - name: Verify bin/uuidv7 version matches tag
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          SCRIPT_VER=$(grep -oE '\(def version\s+"[^"]+"' bin/uuidv7 \
+                       | grep -oE '"[^"]+"$' | tr -d '"')
+          if [ "$SCRIPT_VER" != "$VERSION" ]; then
+            echo "::error::Tag is v${VERSION} but bin/uuidv7 version is \"${SCRIPT_VER}\""
+            exit 1
+          fi
+          echo "Tag and bin/uuidv7 version agree: $VERSION"
+
+      - name: Verify build.clj version matches tag
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          BUILD_VER=$(grep -oE '\(def version\s+"[^"]+"' build.clj \
+                      | grep -oE '"[^"]+"$' | tr -d '"')
+          if [ "$BUILD_VER" != "$VERSION" ]; then
+            echo "::error::Tag is v${VERSION} but build.clj version is \"${BUILD_VER}\""
+            exit 1
+          fi
+          echo "Tag and build.clj version agree: $VERSION"
+
+      - name: Verify core.cljc version matches tag
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          CORE_VER=$(grep -oE '\(def version[^"]+"[^"]+"' src/com/github/franks42/uuidv7/core.cljc \
+                     | grep -oE '"[^"]+"$' | tr -d '"')
+          if [ "$CORE_VER" != "$VERSION" ]; then
+            echo "::error::Tag is v${VERSION} but core.cljc version is \"${CORE_VER}\""
+            exit 1
+          fi
+          echo "Tag and core.cljc version agree: $VERSION"
+
+      - name: Prefetch project deps
+        # Populates ~/.m2 with the project's main :deps so
+        # tools.build/create-basis can resolve them later when
+        # `clojure -T:build deploy` runs in tool mode.
+        run: clojure -P
+
+      - name: Run library tests (bb)
+        run: bb test:bb
+
+      - name: Run CLI tests (dev mode)
+        run: bb test:cli
+
+      - name: Lint
+        run: bb lint
+
+      - name: Format check
+        run: bb fmt
+
+      - name: Publish library to Clojars
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_PASSWORD }}
+        run: clojure -T:build deploy
+
+      - name: Wait for Clojars indexing
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sfL "https://repo.clojars.org/com/github/franks42/uuidv7/$VERSION/uuidv7-$VERSION.jar" -o /dev/null; then
+              echo "Clojars indexed uuidv7 $VERSION"
+              exit 0
+            fi
+            echo "Waiting for Clojars indexing... ($i/30)"
+            sleep 10
+          done
+          echo "::error::Clojars indexing didn't complete within 5 minutes"
+          exit 1
+
+      - name: Smoke-test CLI in clean release mode
+        run: |
+          mkdir -p /tmp/uuidv7-smoke
+          cp bin/uuidv7 /tmp/uuidv7-smoke/
+          cd /tmp/uuidv7-smoke
+          out=$(./uuidv7 gen)
+          if ! echo "$out" | grep -qE '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+            echo "::error::Release-mode CLI smoke test failed."
+            echo "Got: '$out'"
+            exit 1
+          fi
+          echo "OK: CLI resolved uuidv7 from Clojars and produced a valid UUIDv7"
+
+      - name: Build versioned asset
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          mkdir -p /tmp/release
+          cp bin/uuidv7 "/tmp/release/uuidv7-${TAG}"
+          chmod +x "/tmp/release/uuidv7-${TAG}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          gh release create "$TAG" "/tmp/release/uuidv7-$TAG" \
+            --title "$TAG" \
+            --generate-notes

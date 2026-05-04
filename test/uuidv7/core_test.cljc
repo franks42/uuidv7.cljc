@@ -136,10 +136,10 @@
        (let [n-threads  10
              n-per-thread 1000
              results    (mapv deref
-                          (mapv (fn [_]
-                                  (future
-                                    (doall (repeatedly n-per-thread uuidv7/uuidv7))))
-                                (range n-threads)))
+                              (mapv (fn [_]
+                                      (future
+                                        (doall (repeatedly n-per-thread uuidv7/uuidv7))))
+                                    (range n-threads)))
              all-uuids  (apply concat results)]
          (is (= (* n-threads n-per-thread) (count all-uuids))
              "Should generate expected number of UUIDs")
@@ -150,11 +150,11 @@
        (let [n-threads  10
              n-per-thread 1000
              results    (mapv deref
-                          (mapv (fn [_]
-                                  (future
-                                    (let [gen (uuidv7/make-generator)]
-                                      (doall (repeatedly n-per-thread gen)))))
-                                (range n-threads)))]
+                              (mapv (fn [_]
+                                      (future
+                                        (let [gen (uuidv7/make-generator)]
+                                          (doall (repeatedly n-per-thread gen)))))
+                                    (range n-threads)))]
          (doseq [thread-uuids results]
            (is (every? true? (map uuid<? thread-uuids (rest thread-uuids)))
                "Each thread's sequence should be strictly monotonic"))))))

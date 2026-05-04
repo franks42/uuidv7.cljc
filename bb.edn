@@ -1,0 +1,85 @@
+{:paths ["src" "test"]
+ :deps  {}
+
+ :tasks
+ {test:bb
+  {:doc  "Run library tests under bb"
+   :task (do (require 'clojure.test 'uuidv7.core-test)
+             (let [r (clojure.test/run-tests 'uuidv7.core-test)]
+               (when (pos? (+ (:fail r) (:error r)))
+                 (System/exit 1))))}
+
+  test:cli
+  {:doc  "Run CLI integration tests (shells out to bin/uuidv7)"
+   :task (do (require 'clojure.test 'uuidv7.cli-test)
+             (let [r (clojure.test/run-tests 'uuidv7.cli-test)]
+               (when (pos? (+ (:fail r) (:error r)))
+                 (System/exit 1))))}
+
+  install
+  {:doc  "Install JAR to local Maven repo (~/.m2)"
+   :task (shell "clojure" "-T:build" "install")}
+
+  test:cli-release
+  {:doc  "Install lib to local m2, then run bin/uuidv7 from a clean
+          temp dir (no adjacent src/) so it goes through add-deps and
+          resolves uuidv7 from Maven. Catches release-mode bugs."
+   :task (do (run 'install)
+             (let [tmp (str (System/getProperty "java.io.tmpdir")
+                            "/uuidv7-cli-release-test")
+                   root (System/getProperty "user.dir")]
+               (.mkdirs (java.io.File. tmp))
+               (shell "cp" (str root "/bin/uuidv7") tmp)
+               (let [r   (shell {:dir tmp :out :string} "./uuidv7" "gen")
+                     out (:out r)]
+                 (if (and (string? out)
+                          (re-matches (re-pattern "[0-9a-f-]{36}\\n") out))
+                   (println "OK: release-mode CLI resolved uuidv7 from local m2 and produced a UUID:" (clojure.string/trim out))
+                   (do (println "FAIL: release-mode CLI produced:" (pr-str out))
+                       (System/exit 1))))))}
+
+  release-check
+  {:doc  "Refuse to release a non-stable version. Run before `git tag`."
+   :task (let [src (slurp "bin/uuidv7")
+               m   (re-find (re-pattern "\\(def version\\s+\"([^\"]+)\"") src)
+               ver (second m)]
+           (cond
+             (nil? ver)
+             (do (println "ERROR: couldn't parse version from bin/uuidv7")
+                 (System/exit 1))
+
+             (re-find (re-pattern "(?i)snapshot|alpha|beta|rc") ver)
+             (do (println "ERROR: bin/uuidv7 version is" (str "\"" ver "\"")
+                          "— refusing to release a non-stable version.")
+                 (System/exit 1))
+
+             (not (re-matches (re-pattern "\\d+\\.\\d+\\.\\d+") ver))
+             (do (println "ERROR: version" (str "\"" ver "\"")
+                          "is not a semver triple X.Y.Z")
+                 (System/exit 1))
+
+             :else
+             (println "OK: version is" (str "\"" ver "\""))))}
+
+  lint
+  {:doc  "Run clj-kondo linter"
+   :task (shell "clj-kondo" "--lint" "src" "test")}
+
+  fmt
+  {:doc  "Check cljfmt formatting"
+   :task (shell "cljfmt" "check" "src" "test")}
+
+  fmt:fix
+  {:doc  "Fix cljfmt formatting"
+   :task (shell "cljfmt" "fix" "src" "test")}
+
+  check
+  {:doc     "Run lint + fmt-check together (pre-commit gate)"
+   :depends [lint fmt]}
+
+  test:all
+  {:doc  "Run library tests + CLI tests + lint + fmt"
+   :task (do (run 'test:bb)
+             (run 'test:cli)
+             (run 'lint)
+             (run 'fmt))}}}

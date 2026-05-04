@@ -34,6 +34,12 @@
   (:require [clojure.string :as str])
   #?(:clj (:import [java.util UUID])))
 
+(def version
+  "Version of this library. Updated at release time; matches the
+  Maven coord on Clojars and the version reported by `bin/uuidv7
+  --version`."
+  "0.6.0")
+
 ;; ---------------------------------------------------------------------------
 ;; Platform helpers
 ;; ---------------------------------------------------------------------------
@@ -176,16 +182,16 @@
      ;;   g4  = variant 10 + rand_b hi (4 hex)
      ;;   g5  = rand_b lo              (12 hex)
      (parse-uuid
-       (str (to-hex (quot ts 65536)  8)                                ;; g1
-            "-"
-            (to-hex (rem ts 65536) 4)                                  ;; g2
-            "-"
-            (to-hex (+ 0x7000 rand-a) 4)                               ;; g3
-            "-"
-            (to-hex (+ 0x8000 (quot rand-b-hi 65536)) 4)               ;; g4
-            "-"
-            (to-hex (rem rand-b-hi 65536) 4)                           ;; g5 hi
-            (to-hex rand-b-lo 8)))))                                    ;; g5 lo
+      (str (to-hex (quot ts 65536)  8)                                ;; g1
+           "-"
+           (to-hex (rem ts 65536) 4)                                  ;; g2
+           "-"
+           (to-hex (+ 0x7000 rand-a) 4)                               ;; g3
+           "-"
+           (to-hex (+ 0x8000 (quot rand-b-hi 65536)) 4)               ;; g4
+           "-"
+           (to-hex (rem rand-b-hi 65536) 4)                           ;; g5 hi
+           (to-hex rand-b-lo 8)))))                                    ;; g5 lo
 
 ;; ---------------------------------------------------------------------------
 ;; UUID validation

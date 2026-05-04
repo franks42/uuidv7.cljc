@@ -1,0 +1,345 @@
+#!/usr/bin/env bb
+
+;; uuidv7 — UUIDv7 generator / parser / validator CLI
+;;
+;; Subcommands:
+;;   gen     — generate one UUIDv7 (default format: bare UUID string)
+;;   parse   — parse one or more UUIDv7s, emit structured EDN (default)
+;;   valid   — predicate; exit 0 if input is a valid UUIDv7, 1 otherwise
+;;
+;; Output is raw UTF-8 bytes via OutputStream — no PrintWriter, no
+;; locale-dependent encoding paths. Default emission is one form/line
+;; with trailing newline (Unix file convention).
+;;
+;; Source loading: when running from inside the uuidv7.cljc repo (i.e.
+;; ../src/com/github/franks42/uuidv7/core.cljc exists relative to this
+;; script), we classpath-add the local src/ so unpublished changes
+;; flow through. In release (the artifact downloaded from a GitHub
+;; Release, with no adjacent src/), we use babashka.deps to pull the
+;; pinned uuidv7 version from Clojars on first run; bb caches in ~/.m2.
+;;
+;; See `uuidv7 --help` for the full usage.
+
+(require '[babashka.cli       :as cli]
+         '[babashka.classpath :as cp]
+         '[babashka.deps      :as deps]
+         '[clojure.string     :as str])
+
+(def version "0.6.0")  ; matches the Maven coord and src/.../core.cljc
+
+;; Dev vs release source resolution.
+(let [script-file (java.io.File. (System/getProperty "babashka.file"))
+      repo-root   (.getParentFile (.getCanonicalFile (.getParentFile script-file)))
+      src-dir     (java.io.File. repo-root "src")
+      lib-core    (java.io.File. src-dir "com/github/franks42/uuidv7/core.cljc")]
+  (if (.exists lib-core)
+    (cp/add-classpath (.getAbsolutePath src-dir))
+    (deps/add-deps {:deps {'com.github.franks42/uuidv7
+                           {:mvn/version version}}})))
+
+(require '[com.github.franks42.uuidv7.core :as uuidv7])
+
+;; ----- top-level usage -----
+
+(def usage
+  "uuidv7 — UUIDv7 generator / parser / validator
+
+USAGE:
+    uuidv7 <subcommand> [OPTIONS]
+
+SUBCOMMANDS:
+    gen      Generate one UUIDv7
+    parse    Parse one or more UUIDv7s into structured EDN
+    valid    Predicate: exit 0 if input is a valid UUIDv7, else 1
+
+GLOBAL OPTIONS:
+    -h, --help     Display this help text and exit
+    -v, --version  Display version and exit
+
+Run `uuidv7 <subcommand> --help` for subcommand-specific options.
+
+EXIT CODES:
+    0  success
+    1  malformed UUID, non-v7 UUID, or I/O error
+    2  usage error (bad subcommand, conflicting flags)
+")
+
+;; ----- error helpers -----
+
+(defn die [code prefix msg]
+  (binding [*out* *err*] (println "uuidv7:" prefix msg))
+  (System/exit code))
+
+(defn die-usage [msg]
+  (binding [*out* *err*]
+    (println "uuidv7:" msg)
+    (println)
+    (println usage))
+  (System/exit 2))
+
+;; ----- output stream + writing helpers -----
+
+(defn make-output-stream [{:keys [output]}]
+  (if output
+    (try (java.io.FileOutputStream. ^String output)
+         (catch java.io.IOException e
+           (die 1 "could not open output file:" (.getMessage e))))
+    System/out))
+
+(defn write-line!
+  "Write a string followed by '\\n' as raw UTF-8 bytes to out."
+  [^java.io.OutputStream out ^String s]
+  (.write out (.getBytes (str s "\n") "UTF-8"))
+  (.flush out))
+
+;; ----- format helpers -----
+
+(def valid-formats #{:uuid :urn :edn})
+
+(defn validate-format! [fmt]
+  (when-not (valid-formats fmt)
+    (die-usage (str "unknown format: " fmt
+                    "  (expected: uuid, urn, or edn)"))))
+
+(defn format-uuid
+  "Render a UUID in the requested format. Caller is responsible for
+  ensuring `u` is a valid UUIDv7 (use uuidv7/uuidv7? first)."
+  [fmt u]
+  (case fmt
+    :uuid (str u)
+    :urn  (str "urn:uuid:" u)
+    :edn  (pr-str {:uuid     u
+                   :uri      (str "urn:uuid:" u)
+                   :datetime (uuidv7/extract-inst u)
+                   :counter  (vec (uuidv7/extract-counter u))})))
+
+;; ----- input source helpers (for parse / valid) -----
+
+(defn read-uuid-strings
+  "Yields a seq of UUID strings to process. Source priority:
+    1. positional arg (single UUID)
+    2. --input <file>  (one UUID per line)
+    3. stdin           (one UUID per line)
+   Mutually exclusive: positional + --input -> die-usage."
+  [positional {:keys [input]}]
+  (when (and positional input)
+    (die-usage "positional UUID arg and --input are mutually exclusive"))
+  (cond
+    positional
+    [positional]
+
+    input
+    (try (->> (slurp input)
+              str/split-lines
+              (map str/trim)
+              (remove str/blank?))
+         (catch java.io.FileNotFoundException _
+           (die 1 "input file not found:" input)))
+
+    :else
+    (->> (slurp *in*)
+         str/split-lines
+         (map str/trim)
+         (remove str/blank?))))
+
+(defn parse-uuid!
+  "Parse a UUID string, dying with exit 1 on malformed input."
+  [^String s]
+  (try (java.util.UUID/fromString s)
+       (catch IllegalArgumentException _
+         (die 1 "malformed UUID:" s))))
+
+(defn extract-positional
+  "Walk args linearly, pulling out the first non-flag argument as the
+  positional value. Returns [positional rest-args] where rest-args is
+  the remaining flag args. Handles `--flag=value`, `--flag value`, and
+  bare `--flag` boolean shapes correctly so a positional UUID that
+  follows flags is recognised (not silently swallowed by babashka.cli)."
+  [args value-flags]
+  (loop [acc [] remaining args]
+    (if (empty? remaining)
+      [nil acc]
+      (let [a (first remaining)]
+        (cond
+          ;; --flag=value : single arg, self-contained
+          (and (str/starts-with? a "-") (str/includes? a "="))
+          (recur (conj acc a) (rest remaining))
+
+          ;; --flag value : two args, consume both
+          (and (str/starts-with? a "-") (contains? value-flags a))
+          (recur (conj acc a (second remaining)) (drop 2 remaining))
+
+          ;; bare --flag : single arg
+          (str/starts-with? a "-")
+          (recur (conj acc a) (rest remaining))
+
+          ;; first non-flag arg — it's the positional. Done.
+          :else
+          [a (into acc (rest remaining))])))))
+
+;; ============================================================
+;; gen subcommand
+;; ============================================================
+
+(def gen-spec
+  {:format {:coerce :keyword
+            :default :uuid
+            :desc    "Output format: uuid (default), urn, or edn"}
+   :output {:coerce :string
+            :desc   "Write to file instead of stdout"}
+   :help   {:alias  :h :coerce :boolean
+            :desc   "Display this help text and exit"}})
+
+(def gen-usage
+  "uuidv7 gen — generate one UUIDv7
+
+USAGE:
+    uuidv7 gen [OPTIONS]
+
+OPTIONS:
+    --format uuid|urn|edn   Output format (default: uuid)
+    --output <file>         Write to file instead of stdout
+    -h, --help              Display this help and exit
+
+FORMATS:
+    uuid   bare UUID:        0195a4c8-fae8-7c8d-b2a1-...
+    urn    URN form:         urn:uuid:0195a4c8-fae8-7c8d-b2a1-...
+    edn    EDN record:       {:uuid #uuid \"...\" :uri \"urn:uuid:...\"
+                              :datetime #inst \"...\" :counter [a bh bl]}
+")
+
+(defn run-gen [args]
+  (let [opts (try (cli/parse-opts args {:spec gen-spec :restrict true})
+                  (catch clojure.lang.ExceptionInfo e
+                    (die-usage (.getMessage e))))]
+    (when (:help opts) (println gen-usage) (System/exit 0))
+    (validate-format! (:format opts))
+    (let [out (make-output-stream opts)]
+      (try
+        (write-line! out (format-uuid (:format opts) (uuidv7/uuidv7)))
+        (catch java.io.IOException _ nil)
+        (finally
+          (when (:output opts) (.close out)))))))
+
+;; ============================================================
+;; parse subcommand
+;; ============================================================
+
+(def parse-spec
+  {:input  {:alias  :i :coerce :string
+            :desc   "Read UUIDs from file (one per line) instead of stdin"}
+   :format {:coerce :keyword
+            :default :edn
+            :desc   "Output format: uuid, urn, or edn (default)"}
+   :output {:coerce :string
+            :desc   "Write to file instead of stdout"}
+   :help   {:alias  :h :coerce :boolean
+            :desc   "Display this help text and exit"}})
+
+(def parse-usage
+  "uuidv7 parse — parse one or more UUIDv7s into structured form
+
+USAGE:
+    uuidv7 parse [<uuid>] [OPTIONS]
+
+INPUT (priority order):
+    1. positional UUID argument:    uuidv7 parse 0195...
+    2. --input <file>               (one UUID per line)
+    3. stdin                        (one UUID per line)
+
+OPTIONS:
+    -i, --input <file>      Read UUIDs from file (one per line)
+    --format uuid|urn|edn   Output format (default: edn)
+    --output <file>         Write to file instead of stdout
+    -h, --help              Display this help and exit
+
+ERRORS:
+    Exits 1 on first malformed UUID or non-v7 UUID with stderr message.
+    No partial-input keep-going mode in this version.
+")
+
+(def parse-value-flags #{"-i" "--input" "--format" "--output"})
+
+(defn run-parse [args]
+  (let [[positional rest-args] (extract-positional args parse-value-flags)
+        opts (try (cli/parse-opts rest-args {:spec parse-spec :restrict true})
+                  (catch clojure.lang.ExceptionInfo e
+                    (die-usage (.getMessage e))))]
+    (when (:help opts) (println parse-usage) (System/exit 0))
+    (validate-format! (:format opts))
+    (let [uuids (read-uuid-strings positional opts)
+          out   (make-output-stream opts)]
+      (try
+        (doseq [s uuids]
+          (let [u (parse-uuid! s)]
+            (when-not (uuidv7/uuidv7? u)
+              (die 1 "not a UUIDv7:" s))
+            (write-line! out (format-uuid (:format opts) u))))
+        (catch java.io.IOException _ nil)
+        (finally
+          (when (:output opts) (.close out)))))))
+
+;; ============================================================
+;; valid subcommand
+;; ============================================================
+
+(def valid-spec
+  {:input {:alias  :i :coerce :string
+           :desc   "Read UUIDs from file (one per line) instead of stdin"}
+   :help  {:alias  :h :coerce :boolean
+           :desc   "Display this help text and exit"}})
+
+(def valid-usage
+  "uuidv7 valid — predicate for UUIDv7 input
+
+USAGE:
+    uuidv7 valid [<uuid>] [OPTIONS]
+
+INPUT (priority order):
+    1. positional UUID argument
+    2. --input <file>               (one UUID per line)
+    3. stdin                        (one UUID per line)
+
+OPTIONS:
+    -i, --input <file>      Read UUIDs from file (one per line)
+    -h, --help              Display this help and exit
+
+EXIT CODES:
+    0  all inputs are valid UUIDv7s
+    1  any input is malformed or not a UUIDv7 (fail-fast)
+    2  usage error
+")
+
+(def valid-value-flags #{"-i" "--input"})
+
+(defn run-valid [args]
+  (let [[positional rest-args] (extract-positional args valid-value-flags)
+        opts (try (cli/parse-opts rest-args {:spec valid-spec :restrict true})
+                  (catch clojure.lang.ExceptionInfo e
+                    (die-usage (.getMessage e))))]
+    (when (:help opts) (println valid-usage) (System/exit 0))
+    (let [uuids (read-uuid-strings positional opts)]
+      (doseq [s uuids]
+        (let [u (try (java.util.UUID/fromString s)
+                     (catch IllegalArgumentException _
+                       (die 1 "malformed UUID:" s)))]
+          (when-not (uuidv7/uuidv7? u)
+            (die 1 "not a UUIDv7:" s))))
+      ;; All passed.
+      (System/exit 0))))
+
+;; ============================================================
+;; main dispatch
+;; ============================================================
+
+(let [[cmd & rest-args] *command-line-args*]
+  (case cmd
+    nil          (do (println usage) (System/exit 0))
+    "gen"        (run-gen rest-args)
+    "parse"      (run-parse rest-args)
+    "valid"      (run-valid rest-args)
+    "-h"         (do (println usage) (System/exit 0))
+    "--help"     (do (println usage) (System/exit 0))
+    "-v"         (do (println "uuidv7" version) (System/exit 0))
+    "--version"  (do (println "uuidv7" version) (System/exit 0))
+    (die-usage (str "unknown subcommand: " cmd))))
