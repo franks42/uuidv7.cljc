@@ -123,19 +123,20 @@
              :else
              (println "OK: version is" (str "\"" ver "\""))))}
 
+  ;; Every Clojure file in the repo.
   lint
   {:doc  "Run clj-kondo linter"
-   :task (do (shell "clj-kondo" "--lint" "src" "test")
+   :task (do (shell "clj-kondo" "--lint" "src" "test" "build.clj")
              ;; no .clj extension, so name the language explicitly
              (shell "clj-kondo" "--lang" "clj" "--lint" "bin/uuidv7"))}
 
   fmt
   {:doc  "Check cljfmt formatting"
-   :task (shell "cljfmt" "check" "src" "test")}
+   :task (shell "cljfmt" "check" "src" "test" "bin/uuidv7" "build.clj" "bb.edn" "deps.edn")}
 
   fmt:fix
   {:doc  "Fix cljfmt formatting"
-   :task (shell "cljfmt" "fix" "src" "test")}
+   :task (shell "cljfmt" "fix" "src" "test" "bin/uuidv7" "build.clj" "bb.edn" "deps.edn")}
 
   check
   {:doc     "Run lint + fmt-check together (pre-commit gate)"

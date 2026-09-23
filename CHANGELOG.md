@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+### Changed
+
+- CI runs on Node 26 (from 22).
+- `bb lint` and `bb fmt` cover every Clojure file in the repo
+  (`bin/uuidv7`, `build.clj`, `bb.edn`, `deps.edn` as well as `src` and
+  `test`). All were already clean.
+
 ## [0.7.0] — 2026-09-22 — Strict validation, CI on every platform
 
 ### Changed (breaking for code that catches `AssertionError`)

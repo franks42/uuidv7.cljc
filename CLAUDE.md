@@ -9,6 +9,16 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 - CLI on GitHub Releases: `uuidv7-v0.7.0` asset
 - 0.7.0: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG.
 - Library tests: 14 on JVM/bb (incl. JVM concurrency test), 13 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
+- 0.7.0 verified from outside: full JVM, bb and compiled-CLJS suites against the Clojars JAR (local `~/.m2` copy deleted first), full nbb suite via the README git dep, CDN smoke test, release asset; jsdelivr and JAR sources byte-identical to the tag.
+- Runtimes (dev/test): Clojure 1.12.6, ClojureScript 1.12.145, Scittle 0.8.33, bb and nbb `latest` in CI, JDK 21, Node 26.
+- Since 0.7.0 (unreleased, tooling only): CI on Node 26; `bb lint` / `bb fmt` cover every Clojure file (`src`, `test`, `bin/uuidv7`, `build.clj`, `bb.edn`, `deps.edn`).
+
+## Lint and format
+
+`bb check` (= `bb lint` + `bb fmt`) must be clean before every commit, on
+every Clojure file — not just the ones you touched. `bin/uuidv7` has no
+extension, so clj-kondo needs `--lang clj`; cljfmt reads it as-is. CI runs
+both.
 
 ## Project Structure
 
