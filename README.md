@@ -29,8 +29,8 @@ nbb cannot read JAR files, so use a git dependency instead:
 ```clojure
 {:deps {com.github.franks42/uuidv7
         {:git/url "https://github.com/franks42/uuidv7.cljc"
-         :git/tag "v0.7.0"
-         :git/sha "8b8d9d7"}}}
+         :git/tag "v0.7.1"
+         :git/sha "6eb3fe1"}}}
 ```
 
 ## Usage
