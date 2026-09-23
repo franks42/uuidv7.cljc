@@ -142,12 +142,18 @@ EXIT CODES:
          (map str/trim)
          (remove str/blank?))))
 
+;; Canonical 8-4-4-4-12 hex, either case. Checked before UUID/fromString,
+;; which also accepts short groups: "1-1-7000-8000-1" would otherwise read
+;; as a valid UUIDv7.
+(def uuid-re
+  #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+
 (defn parse-uuid!
-  "Parse a UUID string, dying with exit 1 on malformed input."
+  "Parse a canonical-form UUID string, dying with exit 1 on malformed input."
   [^String s]
-  (try (java.util.UUID/fromString s)
-       (catch IllegalArgumentException _
-         (die 1 "malformed UUID:" s))))
+  (if (re-matches uuid-re s)
+    (java.util.UUID/fromString s)
+    (die 1 "malformed UUID:" s)))
 
 (defn extract-positional
   "Walk args linearly, pulling out the first non-flag argument as the
@@ -320,9 +326,7 @@ EXIT CODES:
     (when (:help opts) (println valid-usage) (System/exit 0))
     (let [uuids (read-uuid-strings positional opts)]
       (doseq [s uuids]
-        (let [u (try (java.util.UUID/fromString s)
-                     (catch IllegalArgumentException _
-                       (die 1 "malformed UUID:" s)))]
+        (let [u (parse-uuid! s)]
           (when-not (uuidv7/uuidv7? u)
             (die 1 "not a UUIDv7:" s))))
       ;; All passed.

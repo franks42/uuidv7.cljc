@@ -158,3 +158,65 @@
          (doseq [thread-uuids results]
            (is (every? true? (map uuid<? thread-uuids (rest thread-uuids)))
                "Each thread's sequence should be strictly monotonic"))))))
+
+(defn- thrown-data
+  "Call f; return the ex-data of what it throws, :no-ex-data for a throw
+   without ex-data, or ::no-throw. Portable stand-in for `thrown?`, which
+   the scittle clojure.test shim does not support."
+  [f]
+  (try (f) ::no-throw
+       (catch #?(:clj Throwable :cljs :default) e
+         (or (ex-data e) :no-ex-data))))
+
+(deftest test-uuidv7?-accepts
+  (testing "generated UUID objects and their strings"
+    (let [u (uuidv7/uuidv7)]
+      (is (true? (uuidv7/uuidv7? u)))
+      (is (true? (uuidv7/uuidv7? (str u))))))
+
+  (testing "uppercase and mixed-case strings, for every variant digit"
+    (doseq [s ["0195A4C8-1234-7ABC-8BCD-0123456789AB"
+               "0195A4C8-1234-7ABC-9BCD-0123456789AB"
+               "0195A4C8-1234-7ABC-ABCD-0123456789AB"
+               "0195A4C8-1234-7ABC-BBCD-0123456789AB"
+               "0195a4c8-1234-7AbC-bBcD-0123456789aB"]]
+      (is (true? (uuidv7/uuidv7? s)) s))))
+
+(deftest test-uuidv7?-rejects
+  (testing "non-v7 UUIDs"
+    (is (false? (uuidv7/uuidv7? (random-uuid))))
+    (is (false? (uuidv7/uuidv7? "0195a4c8-1234-4abc-8bcd-0123456789ab")))  ; version 4
+    (is (false? (uuidv7/uuidv7? "0195a4c8-1234-7abc-cbcd-0123456789ab")))) ; variant 110x
+
+  (testing "values that only look right at the version and variant positions"
+    (doseq [s ["xxxxxxxxxxxxxx7xxxx8"
+               "xxxxxxxx-xxxx-7xxx-8xxx-xxxxxxxxxxxx"
+               "0195a4c8-1234-7abc-8bcd-0123456789ab0"  ; one hex digit too many
+               "0195a4c8-1234-7abc-8bcd-0123456789a"    ; one too few
+               "0195a4c812347abc8bcd0123456789ab"       ; no dashes
+               "{0195a4c8-1234-7abc-8bcd-0123456789ab}"
+               "urn:uuid:0195a4c8-1234-7abc-8bcd-0123456789ab"
+               " 0195a4c8-1234-7abc-8bcd-0123456789ab"]]
+      (is (false? (uuidv7/uuidv7? s)) s)))
+
+  (testing "nil, empty, short and non-string values return false, never throw"
+    (doseq [x [nil "" "abc" "7" 42 :k []]]
+      (is (false? (uuidv7/uuidv7? x)) (pr-str x)))))
+
+(deftest test-extraction-rejects-non-v7
+  (testing "extractors throw ex-info with :type ::not-uuidv7"
+    (doseq [[fname f] [["extract-ts"      uuidv7/extract-ts]
+                       ["extract-counter" uuidv7/extract-counter]
+                       ["extract-key"     uuidv7/extract-key]
+                       ["extract-inst"    uuidv7/extract-inst]]
+            bad       [(random-uuid) "xxxxxxxxxxxxxx7xxxx8" nil]]
+      (is (= :com.github.franks42.uuidv7.core/not-uuidv7
+             (:type (thrown-data #(f bad))))
+          (str fname " " (pr-str bad))))))
+
+(deftest test-extraction-accepts-uppercase
+  (testing "an uppercase string extracts the same values as the lowercase one"
+    ;; Variant digit A: the case the old check got wrong (8/9 passed by luck)
+    (let [lo "0195a4c8-1234-7abc-abcd-0123456789ab"
+          up "0195A4C8-1234-7ABC-ABCD-0123456789AB"]
+      (is (= (uuidv7/extract-key lo) (uuidv7/extract-key up))))))

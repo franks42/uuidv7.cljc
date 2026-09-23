@@ -30,7 +30,8 @@
      (when (uuidv7/uuidv7? u)
        (uuidv7/extract-ts u))  ;=> Safe to call after validation
 
-   Passing a non-v7 UUID to an extraction function will throw an AssertionError."
+   Passing anything else to an extraction function throws an ex-info
+   with `{:type ::not-uuidv7}` in its ex-data."
   (:require [clojure.string :as str])
   #?(:clj (:import [java.util UUID])))
 
@@ -197,15 +198,28 @@
 ;; UUID validation
 ;; ---------------------------------------------------------------------------
 
+;; Canonical 8-4-4-4-12 hex form, version digit 7, variant 10xx (8/9/a/b).
+;; Either case, per RFC 9562 §4. Explicit A-F ranges rather than a (?i)
+;; flag, which not every target's regex reader supports.
+(def ^:private uuidv7-re
+  #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}")
+
 (defn uuidv7?
-  "Check if a UUID is version 7 (timestamp-first).
-   Accepts UUID objects, strings, or any type that can be converted to string."
+  "True if `uuid` is a version 7, variant 10xx UUID.
+   Accepts UUID objects and strings in the canonical 8-4-4-4-12 hex form,
+   in either case. Anything else — nil, other types, other string forms
+   such as `urn:uuid:...` or braces — returns false; never throws."
   [uuid]
-  (let [s (str uuid)]
-    ;; Version is at position 14 (0-indexed), must be '7'
-    ;; Variant bits are at position 19 (first char of 4th group), must be 8, 9, a, or b
-    (and (= "7" (subs s 14 15))
-         (contains? #{"8" "9" "a" "b"} (subs s 19 20)))))
+  (boolean (re-matches uuidv7-re (str uuid))))
+
+(defn- check-uuidv7!
+  "Throw unless `uuid` is a UUIDv7. An ex-info rather than an assert:
+   asserts can be compiled out, and AssertionError escapes a
+   (catch Exception ...)."
+  [fname uuid]
+  (when-not (uuidv7? uuid)
+    (throw (ex-info (str fname ": not a UUIDv7: " (pr-str uuid))
+                    {:type ::not-uuidv7 :value uuid}))))
 
 ;; ---------------------------------------------------------------------------
 ;; Public API
@@ -238,9 +252,9 @@
   "Extract the Unix epoch timestamp (milliseconds) from a UUIDv7.
    Works with any UUID type or UUID string.
 
-   Throws AssertionError if the UUID is not version 7."
+   Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (assert (uuidv7? uuid) "extract-ts: UUID is not version 7")
+  (check-uuidv7! "extract-ts" uuid)
   (let [s (str uuid)]
     (parse-hex (str (subs s 0 8) (subs s 9 13)))))
 
@@ -254,9 +268,9 @@
 
    Consistent shape on all platforms (JVM and JS).
 
-   Throws AssertionError if the UUID is not version 7."
+   Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (assert (uuidv7? uuid) "extract-counter: UUID is not version 7")
+  (check-uuidv7! "extract-counter" uuid)
   (let [s (str uuid)]
     [(parse-hex (subs s 15 18))                                   ;; rand-a:    3 hex = 12 bits
      (+ (* (bit-and (parse-hex (subs s 19 23)) 0x3FFF) 65536)     ;; rand-b-hi: 14 bits from g4
@@ -272,16 +286,18 @@
    (timestamp, counter) tuple as a map key or sort key without
    carrying the UUID itself.
 
-   Throws AssertionError if the UUID is not version 7."
+   Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
+  (check-uuidv7! "extract-key" uuid)
   (into [(extract-ts uuid)] (extract-counter uuid)))
 
 (defn extract-inst
   "Extract the creation timestamp from a UUIDv7 as a Date/inst.
    Useful for logging, auditing, and debugging.
 
-   Throws AssertionError if the UUID is not version 7."
+   Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
+  (check-uuidv7! "extract-inst" uuid)
   (let [ts (extract-ts uuid)]
     #?(:clj  (java.util.Date. (long ts))
        :cljs (js/Date. ts))))

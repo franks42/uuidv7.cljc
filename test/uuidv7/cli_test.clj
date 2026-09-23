@@ -184,6 +184,35 @@
     (is (= 1 exit))
     (is (str/includes? err "not a UUIDv7"))))
 
+;; ----- canonical form only -----
+;; java.util.UUID/fromString accepts short groups ("1-1-7000-8000-1" reads
+;; as 00000001-0001-7000-8000-000000000001), so the CLI must check the
+;; 8-4-4-4-12 shape itself.
+
+(def non-canonical-v7
+  ["1-1-7000-8000-1"
+   "0195a4c8-1234-7abc-8bcd-0123456789ab0"
+   "{0195a4c8-1234-7abc-8bcd-0123456789ab}"])
+
+(deftest valid-rejects-non-canonical-form
+  (doseq [s non-canonical-v7]
+    (let [{:keys [exit err]} (run ["valid" s])]
+      (is (= 1 exit) s)
+      (is (str/includes? err "malformed UUID") s))))
+
+(deftest parse-rejects-non-canonical-form
+  (doseq [s non-canonical-v7]
+    (let [{:keys [exit out err]} (run ["parse" s])]
+      (is (= 1 exit) s)
+      (is (str/blank? out) s)
+      (is (str/includes? err "malformed UUID") s))))
+
+(deftest uppercase-input-accepted-and-normalized
+  (let [up "0195A4C8-1234-7ABC-ABCD-0123456789AB"]
+    (is (= 0 (:exit (run ["valid" up]))))
+    (is (= "0195a4c8-1234-7abc-abcd-0123456789ab\n"
+           (:out (run ["parse" up "--format" "uuid"]))))))
+
 ;; ----- round-trip via library -----
 
 (deftest gen-then-parse-roundtrip
