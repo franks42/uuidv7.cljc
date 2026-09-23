@@ -9,6 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+### Changed (breaking for code that catches `AssertionError`)
+
+- **Extraction functions throw `ex-info`** with `{:type
+  :com.github.franks42.uuidv7.core/not-uuidv7 :value v}` instead of an
+  `AssertionError`. An assert can be compiled out (`*assert*` false,
+  `:elide-asserts`), which silently removed the check, and
+  `AssertionError` is not caught by `(catch Exception ...)`.
+
+### Fixed
+
+- **`uuidv7?` checks the whole canonical 8-4-4-4-12 form**, in either
+  case. It used to look only at characters 14 and 19, so:
+  - uppercase UUIDv7 strings were rejected when the variant digit was
+    `A` or `B` (and accepted when it was `8` or `9`);
+  - strings such as `"xxxxxxxxxxxxxx7xxxx8"` were accepted;
+  - `nil` and short strings threw `StringIndexOutOfBoundsException`
+    instead of returning false.
+- **CLI `parse` and `valid` require the canonical form.**
+  `java.util.UUID/fromString` accepts short groups, so
+  `uuidv7 valid 1-1-7000-8000-1` exited 0. Uppercase input is accepted
+  and output is lowercase, as before.
+- **Test runners exit non-zero on failure.** The compiled-CLJS runner
+  always exited 0 (`cljs.test/run-tests` returns no summary), as did
+  the two JAR runners.
+- **README** was still at 0.5.0, and its nbb snippet did not resolve:
+  sha `c551762` is not the `v0.5.0` commit. Now at 0.6.0 (`d6afac6`).
+
+### Added
+
+- README section for the `uuidv7` CLI, and a Development section.
+- `.github/workflows/ci.yml`: every push and PR runs the library on the
+  JVM, bb, nbb, compiled CLJS and Scittle, plus CLI tests, lint and fmt.
+  `release.yml` also gates on the JVM tests now.
+- bb tasks `test:jvm`, `test:nbb`, `test:cljs`, `test:scittle`
+  (headless Chromium via Playwright, `test/runners/run-scittle.mjs`);
+  `test:all` runs every platform. `bb lint` also covers `bin/uuidv7`.
+- Published-artifact checks: `bb test:scittle-cdn [ref]` loads the
+  library from jsdelivr, `bb test:nbb-git` resolves the README's nbb
+  coordinates with an empty gitlibs cache, `bb test:published` runs both
+  against what the README pins, weekly via `.github/workflows/published.yml`.
+  They run `test/published/published_smoke.cljs`, which uses only the
+  0.6.0 API so it works against any release.
+
 ## [0.6.0] — 2026-05-04 — `uuidv7` CLI shipped
 
 The library now ships with a command-line filter for generating, parsing, and validating UUIDv7s. Library API gains a single `version` constant; otherwise no breaking changes from 0.5.0.

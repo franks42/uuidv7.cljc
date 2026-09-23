@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.5.0"}
+com.github.franks42/uuidv7 {:mvn/version "0.6.0"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.5.0"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.6.0"}}}
 ```
 
 ### nbb (nbb.edn)
@@ -29,8 +29,8 @@ nbb cannot read JAR files, so use a git dependency instead:
 ```clojure
 {:deps {com.github.franks42/uuidv7
         {:git/url "https://github.com/franks42/uuidv7.cljc"
-         :git/tag "v0.5.0"
-         :git/sha "c551762"}}}
+         :git/tag "v0.6.0"
+         :git/sha "d6afac6"}}}
 ```
 
 ## Usage
@@ -87,6 +87,35 @@ nbb cannot read JAR files, so use a git dependency instead:
 | `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
 | `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
 
+## Command line
+
+`uuidv7` is a Babashka script that generates, parses and validates
+UUIDv7s. Download it from the
+[latest release](https://github.com/franks42/uuidv7.cljc/releases/latest):
+
+```bash
+curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.6.0/uuidv7-v0.6.0
+chmod +x uuidv7
+```
+
+On first run it fetches the matching library version from Clojars
+(cached in `~/.m2` afterwards).
+
+```bash
+uuidv7 gen                        # 0195a4c8-...-7...  (bare UUID)
+uuidv7 gen --format urn           # urn:uuid:0195a4c8-...
+uuidv7 gen --format edn           # {:uuid #uuid "..." :uri "urn:uuid:..." :datetime #inst "..." :counter [a bh bl]}
+uuidv7 parse 0195a4c8-...         # the same EDN record for an existing UUIDv7
+uuidv7 valid "$id" && echo ok     # exit 0 if every input is a UUIDv7, else 1
+uuidv7 gen --format edn | cedn | sha256sum   # canonical bytes via the cedn CLI
+```
+
+`parse` and `valid` take a positional UUID, `--input <file>`, or stdin
+(one per line). `gen` and `parse` accept `--output <file>`. Exit codes:
+`0` success, `1` malformed UUID, non-v7 UUID or I/O error, `2` usage
+error. A closed downstream pipe (`uuidv7 parse ... | head`) is not an
+error. Run `uuidv7 <subcommand> --help` for details.
+
 ## Platform Support
 
 | Platform | UUID type | Tested |
@@ -107,7 +136,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.5.0/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.6.0/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -119,13 +148,25 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.5.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.6.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");
 ```
 
 **Note:** scittle does not expose the `uuid` constructor function (`(uuid "...")`) — use `parse-uuid` instead, which works on all targets and validates the input format.
+
+## Development
+
+```bash
+bb test:all       # library on JVM, bb, nbb, compiled CLJS and Scittle, plus CLI, lint, fmt
+bb test:jvm       # or: test:bb, test:nbb, test:cljs, test:scittle, test:cli
+bb check          # clj-kondo + cljfmt
+```
+
+`test:scittle` and `test:cljs` need Node.js; `test:scittle` also needs
+Playwright's Chromium (`npm install && npx playwright install chromium`).
+CI runs all of these on every push and pull request.
 
 ## License
 

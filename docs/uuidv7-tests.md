@@ -4,7 +4,7 @@ This document describes the test suite for uuidv7.cljc and how tests are run acr
 
 ## Test Coverage
 
-A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms (8 tests, 45 assertions).
+A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms: 13 tests / 84 assertions on CLJS, nbb and Scittle, 14 / 96 on the JVM and bb (which add a concurrency test). `test/uuidv7/cli_test.clj` covers `bin/uuidv7` (27 tests, bb only), and `test/published/published_smoke.cljs` smoke-tests released versions.
 
 ### 1. UUID Generation (`test-uuidv7-generation`)
 
@@ -43,9 +43,9 @@ A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platf
 - **Generator ordering**: Multiple calls from the same generator are strictly increasing
 - **Cross-generator uniqueness**: Different generators produce different UUIDs
 
-### 7. Counter Consistency (`test-counter-extraction-consistency`)
+### 7. Key Consistency (`test-key-extraction-consistency`)
 
-- **Order preservation**: Counter vector comparison matches UUID comparison
+- **Order preservation**: Key vector comparison matches UUID comparison
 - **100% consistency**: 20 random samples all maintain ordering between UUID and counter
 
 ### 8. String Format (`test-hex-string-format`)
@@ -55,7 +55,37 @@ A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platf
 - **Version at position 14**: Character at index 14 is `7`
 - **Variant at position 19**: Character at index 19 is `8`, `9`, `a`, or `b`
 
+### 9. String Sorting (`test-string-sorting-order`)
+
+- 100 UUIDs' string forms sort in generation order
+
+### 10. Validation accepts (`test-uuidv7?-accepts`)
+
+- Generated UUIDs and their strings; uppercase and mixed case for every variant digit
+
+### 11. Validation rejects (`test-uuidv7?-rejects`)
+
+- v4 and wrong-variant UUIDs; strings that are right only at positions 14 and 19; wrong length, no dashes, braces, `urn:uuid:` prefix, leading space
+- `nil`, empty, short and non-string values return false and never throw
+
+### 12. Extractors reject non-v7 (`test-extraction-rejects-non-v7`)
+
+- Every extractor throws ex-info with `:type ::not-uuidv7` for a v4 UUID, garbage and `nil`
+
+### 13. Uppercase extraction (`test-extraction-accepts-uppercase`)
+
+- An uppercase string extracts the same key as its lowercase form
+
+### 14. Concurrency (`test-concurrent-generation`, JVM/bb only)
+
+- 10 threads × 1000 UUIDs from the shared generator are all unique
+- Per-thread generators each produce strictly monotonic sequences
+
 ## Running Tests
+
+`bb test:all` runs every platform plus CLI tests, lint and fmt; `bb test:jvm`,
+`test:bb`, `test:nbb`, `test:cljs`, `test:scittle` and `test:cli` run one each
+and exit non-zero on failure. The commands they wrap:
 
 ### Clojure (JVM)
 
@@ -85,8 +115,9 @@ nbb --classpath src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test])
 ### Scittle (browser)
 
 ```bash
-python3 -m http.server 8765  # from project root
-# Open: http://localhost:8765/test/runners/test_scittle/index.html
+node test/runners/run-scittle.mjs   # headless Chromium via Playwright
+# or manually: python3 -m http.server 8765, then open
+# http://localhost:8765/test/runners/test_scittle/index.html
 ```
 
 ### JAR-based tests (CLJ and BB)

@@ -7,7 +7,8 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 - Latest release: **v0.6.0**
 - Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.6.0"}`
 - CLI on GitHub Releases: `uuidv7-v0.6.0` asset
-- 10 library tests + 24 CLI tests = 34 total, all passing across JVM, Babashka, nbb, shadow-cljs, Scittle (lib only — CLI is bb-only).
+- Unreleased on `main`: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG `[Unreleased]`.
+- Library tests: 14 on JVM/bb (incl. JVM concurrency test), 13 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
 
 ## Project Structure
 
@@ -16,20 +17,36 @@ src/com/github/franks42/uuidv7/core.cljc   # the library (single file, includes 
 bin/uuidv7                                   # CLI filter (gen / parse / valid subcommands)
 test/uuidv7/core_test.cljc                  # shared library test suite
 test/uuidv7/cli_test.clj                    # CLI integration tests (shells out to bin/uuidv7)
+test/published/published_smoke.cljs         # smoke test for *released* versions (CDN, nbb git dep)
 .clj-kondo/config.edn                       # kondo suppressions
 test/runners/                                # per-platform test runners
+test/runners/run-scittle.mjs                # headless Scittle runner (Playwright)
+test/runners/run-scittle-cdn.mjs            # Scittle smoke test against jsdelivr at a git ref
+package.json                                 # Playwright (dev only)
 bb.edn                                       # bb tasks (test:bb, test:cli, install, release-check, etc.)
 build.clj                                    # tools.build script (jar, install, deploy)
 deps.edn                                     # aliases for all test targets + build
+.github/workflows/ci.yml                    # push/PR: JVM + bb + CLI + lint/fmt; CLJS + nbb + Scittle
+.github/workflows/published.yml             # weekly: CDN (main + README tag), README nbb git dep
 .github/workflows/release.yml               # v*.*.* tag → Clojars deploy + GH Release
 CHANGELOG.md                                 # Keep-a-Changelog format
 ```
 
 ## Running Tests
 
-Expected results:
-- **CLJ/BB**: `Ran 10 tests containing 58 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
-- **CLJS/nbb/scittle**: `Ran 9 tests containing 46 assertions. 0 failures, 0 errors.`
+```bash
+bb test:all        # everything below, plus lint + fmt
+bb test:jvm        # test:bb, test:nbb, test:cljs, test:scittle, test:cli
+bb test:published  # README's pinned CDN tag + nbb git dep (network)
+```
+
+Every task exits non-zero on a failing test (the compiled-CLJS runner
+uses a `:end-run-tests` report hook, since `cljs.test/run-tests` returns
+no summary). Expected results:
+- **CLJ/BB**: `Ran 14 tests containing 96 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
+- **CLJS/nbb/scittle**: `Ran 13 tests containing 84 assertions. 0 failures, 0 errors.`
+
+The raw commands the tasks wrap:
 
 ### Clojure (JVM)
 ```bash
@@ -52,51 +69,46 @@ node target/cljs-test-out/test-cljs.js  # run
 nbb -cp src:test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 ```
 
-### nbb (against Clojars via nbb.edn git dep)
-nbb cannot read JAR files. To test against the published source, create an `nbb.edn`
-with a git dependency and run from that directory:
-```clojure
-;; nbb.edn
-{:deps {com.github.franks42/uuidv7
-        {:git/url "https://github.com/franks42/uuidv7.cljc"
-         :git/tag "v0.5.0"
-         :git/sha "c551762"}}}
-```
-```bash
-nbb -cp test -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
-```
+### nbb (published git dep)
+nbb cannot read JAR files, so users get a git dependency. `bb test:nbb-git`
+copies the nbb.edn block out of README.md, resolves it with an empty gitlibs
+cache and runs `test/published/published_smoke.cljs` against it, checking the
+loaded version matches the README's `:git/tag`. (The README's 0.5.0 snippet
+was broken — sha `c551762` is not the `v0.5.0` commit — and nothing noticed.)
 
 ### Scittle (browser)
 ```bash
-python3 -m http.server 8765  # from project root
-# Open: http://localhost:8765/test/runners/test_scittle/index.html
-# Check data-status attribute on #test-output element: "pass" or "fail"
+bb test:scittle              # headless Chromium; one-time: npm install && npx playwright install chromium
+bb test:scittle-cdn [ref]    # smoke test with the library from jsdelivr at ref (default main)
 ```
-
-**IMPORTANT: Always clear browser cache when testing modified .cljc files in scittle.**
-`<script src="file.cljc">` uses the browser's normal cache — edits are NOT picked up
-without a cache-bust (query param `?v=2` or clearing via Playwright CDP).
+`run-scittle.mjs` serves the repo with `Cache-Control: no-store`, so edits
+are always picked up. For a manual look: `python3 -m http.server 8765` and
+open `http://localhost:8765/test/runners/test_scittle/index.html`; the
+browser *does* cache `<script src>` files there, so cache-bust after edits.
 
 ### Clojars-based tests
-Test against the published Clojars artifact (excludes local `src` from classpath):
+Test against the published Clojars artifact (excludes local `src` from classpath).
+These run the test suite *on main* against a *released* JAR, so they only pass
+when main's tests match that release — use them right after a release, or
+check out the tag first. Replace `X.Y.Z` with the release:
 ```bash
 # CLJ against Clojars
-clojure -Sdeps '{:paths ["test"] :deps {com.github.franks42/uuidv7 {:mvn/version "0.5.0"} org.clojure/clojure {:mvn/version "1.12.4"}}}' -M -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+clojure -Sdeps '{:paths ["test"] :deps {com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"} org.clojure/clojure {:mvn/version "1.12.4"}}}' -M -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 
 # BB against Clojars
-bb -cp "$(clojure -Sdeps '{:paths [] :deps {com.github.franks42/uuidv7 {:mvn/version "0.5.0"}}}' -Spath):test" -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+bb -cp "$(clojure -Sdeps '{:paths [] :deps {com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"}}}' -Spath):test" -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 
 # CLJS against Clojars (compile + run)
-clojure -Sdeps '{:paths ["test" "test/runners"] :deps {org.clojure/clojure {:mvn/version "1.12.4"} org.clojure/clojurescript {:mvn/version "1.11.132"} com.github.franks42/uuidv7 {:mvn/version "0.5.0"}}}' -M -m cljs.main --target node --output-dir target/cljs-clojars-test --output-to target/cljs-clojars-test/test-cljs.js -c test-cljs.core
+clojure -Sdeps '{:paths ["test" "test/runners"] :deps {org.clojure/clojure {:mvn/version "1.12.4"} org.clojure/clojurescript {:mvn/version "1.11.132"} com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"}}}' -M -m cljs.main --target node --output-dir target/cljs-clojars-test --output-to target/cljs-clojars-test/test-cljs.js -c test-cljs.core
 node target/cljs-clojars-test/test-cljs.js
 ```
 
 **Note:** If `~/.m2/repository` has a locally-installed copy (from `clojure -T:build install`),
 delete it first to ensure you're testing the real Clojars artifact:
 ```bash
-rm -rf ~/.m2/repository/com/github/franks42/uuidv7/0.5.0/
+rm -rf ~/.m2/repository/com/github/franks42/uuidv7/X.Y.Z/
 ```
-Verify with: `cat ~/.m2/repository/com/github/franks42/uuidv7/0.5.0/_remote.repositories`
+Verify with: `cat ~/.m2/repository/com/github/franks42/uuidv7/X.Y.Z/_remote.repositories`
 — it should show `>clojars=` (not empty after `>=`).
 
 ### JAR-based tests (local build)
@@ -133,13 +145,22 @@ To ship a new release:
 ```bash
 # Bump versions in three places: src/.../core.cljc, build.clj, bin/uuidv7
 # (keep the version def single-line — workflow's grep extractor relies on it)
+# README: Maven coords, nbb :git/tag, jsdelivr @vX.Y.Z URLs, CLI download URL.
+# CHANGELOG: turn [Unreleased] into the new version section.
 bb release-check        # local refuse-SNAPSHOT check
-bb test:bb && bb test:cli && bb check
+bb test:all
 git commit -am "vX.Y.Z: ..."
+git push origin main    # wait for ci.yml to go green
 git tag -a vX.Y.Z -m "vX.Y.Z — ..."
-git push origin main
-git push origin vX.Y.Z  # workflow fires
+git push origin vX.Y.Z  # release.yml fires
 ```
+
+Afterwards:
+1. Point the README's nbb `:git/sha` at the tagged commit in a follow-up
+   commit (the tagged commit cannot contain its own sha):
+   `git rev-parse --short vX.Y.Z`.
+2. `bb test:published` — the CDN bundle at the pinned tag reports X.Y.Z and
+   the README's nbb git dep resolves from an empty cache.
 
 The Clojars secrets must be set on the repo (`gh secret set CLOJARS_USERNAME` / `CLOJARS_PASSWORD`). Use a deploy token, not your account password — and use `printf '%s' '<value>'` (or `echo -n`) when piping to avoid trailing newlines that break auth.
 
