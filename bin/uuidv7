@@ -25,7 +25,7 @@
          '[babashka.deps      :as deps]
          '[clojure.string     :as str])
 
-(def version "0.7.0")  ; matches the Maven coord and src/.../core.cljc
+(def version "0.7.1")  ; matches the Maven coord and src/.../core.cljc
 
 ;; Dev vs release source resolution.
 (let [script-file (java.io.File. (System/getProperty "babashka.file"))

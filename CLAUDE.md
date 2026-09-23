@@ -4,14 +4,14 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 
 ## Current state
 
-- Latest release: **v0.7.0**
-- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.0"}`
-- CLI on GitHub Releases: `uuidv7-v0.7.0` asset
+- Latest release: **v0.7.1**
+- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.1"}`
+- CLI on GitHub Releases: `uuidv7-v0.7.1` asset
 - 0.7.0: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG.
-- Library tests: 14 on JVM/bb (incl. JVM concurrency test), 13 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
+- Library tests: 15 on JVM/bb (incl. JVM concurrency test), 16 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
 - 0.7.0 verified from outside: full JVM, bb and compiled-CLJS suites against the Clojars JAR (local `~/.m2` copy deleted first), full nbb suite via the README git dep, CDN smoke test, release asset; jsdelivr and JAR sources byte-identical to the tag.
 - Runtimes (dev/test): Clojure 1.12.6, ClojureScript 1.12.145, Scittle 0.8.33, bb and nbb `latest` in CI, JDK 21, Node 26.
-- Since 0.7.0 (unreleased, tooling only): CI on Node 26; `bb lint` / `bb fmt` cover every Clojure file (`src`, `test`, `bin/uuidv7`, `build.clj`, `bb.edn`, `deps.edn`).
+- 0.7.1: secure randomness on CLJS/nbb/Scittle (`random-bytes`, no dependencies; 0.7.0 and earlier used `Math.random` there), CI on Node 26, `bb lint` / `bb fmt` cover every Clojure file.
 
 ## Lint and format
 
@@ -53,8 +53,8 @@ bb test:published  # README's pinned CDN tag + nbb git dep (network)
 Every task exits non-zero on a failing test (the compiled-CLJS runner
 uses a `:end-run-tests` report hook, since `cljs.test/run-tests` returns
 no summary). Expected results:
-- **CLJ/BB**: `Ran 14 tests containing 96 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
-- **CLJS/nbb/scittle**: `Ran 13 tests containing 84 assertions. 0 failures, 0 errors.`
+- **CLJ/BB**: `Ran 15 tests containing 100 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
+- **CLJS/nbb/scittle**: `Ran 16 tests containing 90 assertions. 0 failures, 0 errors.` (includes the Math.random and fail-closed tests)
 
 The raw commands the tasks wrap:
 
@@ -212,6 +212,6 @@ uuidv7 gen --format edn | cedn | sha256sum      # canonical bytes via cedn CLI
 - **Reader conditionals**: Two main branches — `:clj` (JVM + BB) and `:cljs` (CLJS + nbb + scittle). A third `:scittle` branch at end of core.cljc resets namespace.
 - **`:scittle` feature flag**: `#?(:scittle (in-ns 'user))` resets namespace so callers can use bare `(require ...)`. Invisible to all other platforms.
 - **Three-field counter split**: 12 + 30 + 32 bits keeps each value within JS safe-integer range
-- **`random-uuid` as CSPRNG**: The one crypto-random primitive available on all five platforms
+- **Platform CSPRNG, called directly** (`random-bytes`): `SecureRandom` on JVM/bb, `crypto.getRandomValues` on CLJS/nbb/Scittle (65,536-byte chunks, throws when absent). NOT `random-uuid`: `cljs.core/random-uuid` is `Math.random`, which uuidv7 used until 0.7.1. `test-no-math-random` pins `Math.random` to catch a regression. No libsodium dependency, by design: uuidv7 stays dependency-free.
 - **`parse-uuid` over `uuid`**: `uuid` constructor exists in ClojureScript but is not mapped to the `uuid` var in scittle; `parse-uuid` works everywhere
 - **UUIDv7 strings are sortable keys**: `(str uuid)` preserves generation order under string comparison — no extraction needed for sorting

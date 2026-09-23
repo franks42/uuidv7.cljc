@@ -32,14 +32,13 @@
 
    Passing anything else to an extraction function throws an ex-info
    with `{:type ::not-uuidv7}` in its ex-data."
-  (:require [clojure.string :as str])
   #?(:clj (:import [java.util UUID])))
 
 ;; Version of this library. Updated at release time; matches the
 ;; Maven coord on Clojars and the version reported by bin/uuidv7
 ;; --version. Keep this as a single-line def — the release workflow
 ;; greps for the version constant and breaks on multi-line forms.
-(def version "0.7.0")
+(def version "0.7.1")
 
 ;; ---------------------------------------------------------------------------
 ;; Platform helpers
@@ -68,15 +67,53 @@
       s)))
 
 ;; ---------------------------------------------------------------------------
-;; Random number generation — uses random-uuid as a portable CSPRNG source
+;; Random number generation — the platform CSPRNG, called directly
 ;;
-;; random-uuid is available on all targets:
-;;   CLJ  → java.util.UUID/randomUUID (SecureRandom)
-;;   CLJS → crypto.getRandomValues
-;;   BB   → java.util.UUID/randomUUID
-;;   nbb  → CLJS crypto.getRandomValues
-;;   sci  → CLJS crypto.getRandomValues
+;;   CLJ / BB             → java.security.SecureRandom (OS generator)
+;;   CLJS / nbb / Scittle → crypto.getRandomValues   (OS generator)
+;;
+;; Not random-uuid: cljs.core/random-uuid is built on Math.random, which is
+;; not cryptographically secure (uuidv7 used it until 0.7.1).
 ;; ---------------------------------------------------------------------------
+
+#?(:clj
+   (defonce ^:private ^java.security.SecureRandom secure-random
+     (java.security.SecureRandom.)))
+
+#?(:cljs
+   (def ^:private max-random-chunk
+     "crypto.getRandomValues fills at most 65,536 bytes per call."
+     65536))
+
+(defn random-bytes
+  "Returns n bytes from the platform's cryptographically secure generator:
+   a byte[] from java.security.SecureRandom on the JVM and bb, a Uint8Array
+   from crypto.getRandomValues on ClojureScript, nbb and Scittle.
+
+   Fails closed: throws if no secure generator is available, rather than
+   falling back to Math.random."
+  [n]
+  #?(:clj  (let [bs (byte-array n)]
+             (.nextBytes ^java.security.SecureRandom secure-random bs)
+             bs)
+     :cljs (let [c (.-crypto js/globalThis)]
+             (when-not (and c (fn? (.-getRandomValues c)))
+               (throw (ex-info "No secure random generator (crypto.getRandomValues) available"
+                               {:type ::no-secure-random})))
+             (let [out (js/Uint8Array. n)]
+               (loop [off 0]
+                 (when (< off n)
+                   (.getRandomValues c (.subarray out off (min n (+ off max-random-chunk))))
+                   (recur (+ off max-random-chunk))))
+               out))))
+
+(defn- bytes->uint
+  "Unsigned big-endian integer from k bytes of bs at offset off (k <= 6, so
+   the result stays within JS safe-integer range)."
+  [bs off k]
+  (reduce (fn [acc i] (+ (* acc 256) (bit-and (aget bs (+ off i)) 0xFF)))
+          0
+          (range k)))
 
 (defn- random-bits
   "Generate random values for the 74-bit counter:
@@ -85,21 +122,17 @@
      rand-b-lo — 32 bits  [0, 4294967295]
    Returns [rand-a rand-b-hi rand-b-lo]."
   []
-  ;; Two UUIDs give us 244+ random bits — more than the 74 we need.
-  ;; We extract from hex positions known to be fully random
-  ;; (avoiding the v4 version digit at position 12 and variant at 16).
-  (let [h1 (str/replace (str (random-uuid)) "-" "")
-        h2 (str/replace (str (random-uuid)) "-" "")]
-    [(parse-hex (subs h1 0 3))                          ;; 12 bits
-     (bit-and (parse-hex (subs h1 3 11)) 0x3FFFFFFF)    ;; 30 bits
-     (parse-hex (subs h2 0 8))]))                        ;; 32 bits
+  ;; 10 random bytes; mod by a power of two keeps each field uniform.
+  (let [bs (random-bytes 10)]
+    [(mod (bytes->uint bs 0 2) 4096)          ;; 12 of 16 bits
+     (mod (bytes->uint bs 2 4) 1073741824)    ;; 30 of 32 bits
+     (bytes->uint bs 6 4)]))                  ;; 32 bits
 
 (defn- random-increment
   "Random increment in [1, 2^31]. Safe on all platforms (within JS
    integer precision) and large enough to preserve unpredictability."
   []
-  (let [hex (subs (str (random-uuid)) 0 8)]
-    (inc (bit-and (parse-hex hex) 0x7FFFFFFF))))
+  (inc (mod (bytes->uint (random-bytes 4) 0 4) 2147483648)))
 
 ;; ---------------------------------------------------------------------------
 ;; Generator state

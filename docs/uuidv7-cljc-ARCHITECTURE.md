@@ -82,19 +82,21 @@ Within the same millisecond, the counter increments by a random value in `[1, 2^
 
 ## Randomness Source
 
-The implementation uses `random-uuid` (Clojure's built-in) as its portable CSPRNG. This is the *one* crypto-random primitive available on all five target platforms:
+Since 0.7.1 the implementation calls each platform's cryptographically secure generator directly, through the public `random-bytes`:
 
-| Platform    | `random-uuid` backed by                  |
-|------------|------------------------------------------|
-| Clojure    | `java.util.UUID/randomUUID` (SecureRandom) |
-| Babashka   | `java.util.UUID/randomUUID` (SecureRandom) |
-| ClojureScript | `crypto.getRandomValues`              |
-| nbb        | `crypto.getRandomValues` (Node.js)       |
-| Scittle    | `crypto.getRandomValues` (browser)       |
+| Platform      | Source                                   |
+|---------------|------------------------------------------|
+| Clojure       | `java.security.SecureRandom` (OS generator, `NativePRNG` on macOS/Linux) |
+| Babashka      | `java.security.SecureRandom`             |
+| ClojureScript | `crypto.getRandomValues` (OS generator)  |
+| nbb           | `crypto.getRandomValues` (Node.js)       |
+| Scittle       | `crypto.getRandomValues` (browser)       |
 
-A v4 UUID has 122 random bits. By generating two, we get 244+ bits of entropy — far more than the 74 we need for the counter plus the ~31 for the increment. We extract from hex positions that are known to be fully random (avoiding the v4 version nibble at position 12 and the variant bits at position 16).
+`crypto.getRandomValues` fills at most 65,536 bytes per call, so larger requests are filled in chunks. If no secure generator exists, `random-bytes` throws (`::no-secure-random`) instead of falling back to a weaker source.
 
-This is slightly wasteful (generating 256 bits to use 105), but it's simple, correct, dependency-free, and fast enough — UUID generation is not typically a bottleneck.
+Each new millisecond draws 10 bytes for the counter (12 + 30 + 32 bits); each same-millisecond increment draws 4 bytes. Fields are reduced with `mod` by a power of two, which keeps them uniform. JavaScript's 32-bit `bit-and` would turn values above 2^31 negative.
+
+**History (the reason this changed).** Up to 0.7.0 the generator used `random-uuid` and assumed it was a CSPRNG everywhere. That holds on the JVM and bb (`UUID/randomUUID` uses `SecureRandom`), but `cljs.core/random-uuid` is built on `rand-int`, i.e. `Math.random`, which is **not** cryptographically secure. So on ClojureScript, nbb and Scittle the "random" counter bits were predictable. With `Math.random` pinned to a constant, two independent generators produced identical random bits. `test-no-math-random` now guards against this.
 
 ---
 
@@ -232,9 +234,9 @@ Particularly useful for logging and audit — you can reconstruct *when* any ent
 |---------------|-------------------|-------------------|--------|
 | Clojure (JVM) | `java.util.UUID`  | SecureRandom      | ✓      |
 | Babashka      | `java.util.UUID`  | SecureRandom      | ✓      |
-| ClojureScript | `cljs.core/UUID`  | crypto.getRandomValues | ✓ |
-| nbb           | `cljs.core/UUID`  | crypto.getRandomValues | ✓ |
-| Scittle/SCI   | `cljs.core/UUID`  | crypto.getRandomValues | ✓ |
+| ClojureScript | `cljs.core/UUID`  | crypto.getRandomValues (since 0.7.1) | ✓ |
+| nbb           | `cljs.core/UUID`  | crypto.getRandomValues (since 0.7.1) | ✓ |
+| Scittle/SCI   | `cljs.core/UUID`  | crypto.getRandomValues (since 0.7.1) | ✓ |
 
 The `.cljc` reader conditionals have two main branches: `:clj` (covers JVM + Babashka) and `:cljs` (covers ClojureScript + nbb + Scittle). A third branch, `:scittle`, is used solely at the end of `core.cljc` to reset `*ns*` back to `user` after the library loads — this is invisible to all other platforms. No external dependencies.
 
@@ -265,7 +267,7 @@ In many cases, you don't need to extract components at all — **`(str uuid)` is
 **Guaranteed:**
 - Strictly monotonic ordering from a single generator instance (including within the same millisecond)
 - RFC 9562 compliant (version 7, variant 10xx)
-- Cryptographic-quality randomness on all platforms
+- Cryptographic-quality randomness on all platforms (since 0.7.1; before that, ClojureScript/nbb/Scittle used `Math.random`), failing closed when no secure generator exists
 - Correct timestamps extractable from generated IDs
 
 **Not guaranteed:**

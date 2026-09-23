@@ -220,3 +220,57 @@
     (let [lo "0195a4c8-1234-7abc-abcd-0123456789ab"
           up "0195A4C8-1234-7ABC-ABCD-0123456789AB"]
       (is (= (uuidv7/extract-key lo) (uuidv7/extract-key up))))))
+
+(defn- byte-seq
+  "Seq over a byte[] (JVM/bb) or Uint8Array (CLJS/nbb/Scittle)."
+  [bs]
+  #?(:clj (seq bs) :cljs (array-seq bs)))
+
+(deftest test-random-bytes
+  (testing "random-bytes returns n bytes from the platform CSPRNG"
+    (let [n  32
+          bs (uuidv7/random-bytes n)]
+      (is (= n (alength bs)))
+      (is (= 1000 (count (set (repeatedly 1000 #(vec (byte-seq (uuidv7/random-bytes 16)))))))
+          "1000 draws of 16 bytes are distinct")))
+  (testing "sizes above the 65,536-byte getRandomValues limit are filled"
+    (let [bs   (uuidv7/random-bytes 70000)
+          tail (drop 65536 (byte-seq bs))]
+      (is (= 70000 (alength bs)))
+      (is (< 4000 (count (filter #(not= 0 %) tail)))
+          "the bytes past the first 65,536-byte chunk are random, not zero-filled"))))
+
+#?(:cljs
+   (deftest test-no-math-random
+     ;; cljs.core/random-uuid is built on Math.random (not a CSPRNG); uuidv7
+     ;; used it on CLJS/nbb/Scittle until 0.7.1. With Math.random pinned to
+     ;; a constant, a Math.random-based generator yields identical "random"
+     ;; bits; a crypto.getRandomValues-based one does not.
+     (testing "generator randomness does not come from Math.random"
+       (let [orig (.-random js/Math)]
+         (try
+           (set! (.-random js/Math) (fn [] 0.5))
+           (let [g1 (uuidv7/make-generator)
+                 g2 (uuidv7/make-generator)
+                 a  (str (g1))
+                 b  (str (g2))]
+             (is (not= (subs a 13) (subs b 13))
+                 "two generators' random bits differ with Math.random pinned"))
+           (finally (set! (.-random js/Math) orig)))))))
+
+#?(:cljs
+   (deftest test-fails-closed-without-crypto
+     ;; With no crypto.getRandomValues, generation must throw instead of
+     ;; falling back to a weaker source. Runs where globalThis.crypto is
+     ;; configurable (Node, Chromium); elsewhere it only checks the guard.
+     (testing "random-bytes throws when crypto.getRandomValues is missing"
+       (let [d (js/Object.getOwnPropertyDescriptor js/globalThis "crypto")]
+         (if (and d (.-configurable d))
+           (try
+             (js/Object.defineProperty js/globalThis "crypto"
+                                       #js {:value js/undefined :configurable true :writable true})
+             (is (= :com.github.franks42.uuidv7.core/no-secure-random
+                    (try (uuidv7/random-bytes 4) :no-throw
+                         (catch :default e (:type (ex-data e))))))
+             (finally (js/Object.defineProperty js/globalThis "crypto" d)))
+           (is (some? (uuidv7/random-bytes 4)) "crypto not configurable here; guard not exercised"))))))

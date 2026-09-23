@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.7.0"}
+com.github.franks42/uuidv7 {:mvn/version "0.7.1"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.7.0"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.7.1"}}}
 ```
 
 ### nbb (nbb.edn)
@@ -86,6 +86,12 @@ nbb cannot read JAR files, so use a git dependency instead:
 | `(extract-inst uuid)` | Extract creation timestamp as a Date/inst (throws `ex-info` if not v7) |
 | `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` (throws `ex-info` if not v7) |
 | `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` (throws `ex-info` if not v7) |
+| `(random-bytes n)` | `n` bytes from the platform's secure generator (`byte[]` from `SecureRandom` on JVM/bb, `Uint8Array` from `crypto.getRandomValues` on CLJS/nbb/Scittle). Throws if none is available |
+
+All randomness comes from the platform's cryptographically secure
+generator, and there are no dependencies. Before 0.7.1, ClojureScript,
+nbb and Scittle used `cljs.core/random-uuid`, which is built on
+`Math.random`. Upgrade if you use uuidv7 on those platforms.
 
 ## Command line
 
@@ -94,7 +100,7 @@ UUIDv7s. Download it from the
 [latest release](https://github.com/franks42/uuidv7.cljc/releases/latest):
 
 ```bash
-curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.7.0/uuidv7-v0.7.0
+curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.7.1/uuidv7-v0.7.1
 chmod +x uuidv7
 ```
 
@@ -136,7 +142,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.0/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.1/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -148,7 +154,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.1/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");

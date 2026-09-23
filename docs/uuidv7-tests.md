@@ -4,7 +4,7 @@ This document describes the test suite for uuidv7.cljc and how tests are run acr
 
 ## Test Coverage
 
-A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms: 13 tests / 84 assertions on CLJS, nbb and Scittle, 14 / 96 on the JVM and bb (which add a concurrency test). `test/uuidv7/cli_test.clj` covers `bin/uuidv7` (27 tests, bb only), and `test/published/published_smoke.cljs` smoke-tests released versions.
+A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms: 16 tests / 90 assertions on CLJS, nbb and Scittle, 15 / 100 on the JVM and bb (the JVM/bb suite adds a concurrency test; the CLJS suite adds two randomness-source tests). `test/uuidv7/cli_test.clj` covers `bin/uuidv7` (27 tests, bb only), and `test/published/published_smoke.cljs` smoke-tests released versions.
 
 ### 1. UUID Generation (`test-uuidv7-generation`)
 
@@ -80,6 +80,19 @@ A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platf
 
 - 10 threads × 1000 UUIDs from the shared generator are all unique
 - Per-thread generators each produce strictly monotonic sequences
+
+### 15. Secure random bytes (`test-random-bytes`)
+
+- `random-bytes` returns the requested length; 1000 draws of 16 bytes are distinct
+- 70,000 bytes (more than one 65,536-byte `getRandomValues` chunk) are filled past the first chunk
+
+### 16. Not Math.random (`test-no-math-random`, CLJS/nbb/Scittle only)
+
+- With `Math.random` pinned to a constant, two generators' random bits still differ (failed against 0.7.0, which used `cljs.core/random-uuid`)
+
+### 17. Fails closed (`test-fails-closed-without-crypto`, CLJS/nbb/Scittle only)
+
+- With `globalThis.crypto` removed (where the property is configurable), `random-bytes` throws `::no-secure-random`
 
 ## Running Tests
 

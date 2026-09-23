@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+## [0.7.1] — 2026-09-23 — Secure randomness on ClojureScript, nbb and Scittle
+
+### Fixed
+
+- **The random counter bits were not cryptographically secure on
+  ClojureScript, nbb and Scittle.** uuidv7 took its randomness from
+  `random-uuid`, on the assumption that it used `crypto.getRandomValues`.
+  In fact `cljs.core/random-uuid` is built on `rand-int`, i.e.
+  `Math.random`. With `Math.random` pinned to a constant, two independent
+  generators produced identical "random" bits. The JVM and bb were not
+  affected (`UUID/randomUUID` uses `SecureRandom`). The docs and docstrings
+  that claimed otherwise are corrected.
+
+### Added
+
+- **`random-bytes`**: `n` bytes from the platform's secure generator.
+  - JVM and bb: `SecureRandom`, returning a `byte[]`.
+  - ClojureScript, nbb and Scittle: `crypto.getRandomValues`, returning a
+    `Uint8Array`, filled in 65,536-byte chunks.
+  - It **fails closed**: it throws (`::no-secure-random`) when no secure
+    generator exists, instead of falling back.
+  - uuidv7 uses it for all its randomness. It adds no dependencies.
+- Tests:
+  - `test-no-math-random` pins `Math.random` and asserts two generators
+    still differ. It failed against 0.7.0.
+  - `test-fails-closed-without-crypto` removes `globalThis.crypto` and
+    expects the throw.
+  - `test-random-bytes` covers sizes and the chunked fill.
+
 ### Changed
 
 - CI runs on Node 26 (from 22).
