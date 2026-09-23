@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+## [0.7.0] — 2026-09-22 — Strict validation, CI on every platform
+
 ### Changed (breaking for code that catches `AssertionError`)
 
 - **Extraction functions throw `ex-info`** with `{:type
@@ -51,6 +53,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   against what the README pins, weekly via `.github/workflows/published.yml`.
   They run `test/published/published_smoke.cljs`, which uses only the
   0.6.0 API so it works against any release.
+
+### Dependencies
+
+- Test/dev runtimes updated to the latest releases: Clojure 1.12.6
+  (from 1.12.4), ClojureScript 1.12.145 (from 1.11.132), Scittle 0.8.33
+  (from 0.7.30, also in the README snippet). The library JAR still has
+  no runtime dependencies.
+- Removed the unused `:test-bb` alias, which pinned a Maven coordinate
+  (`org.babashka/babashka`) that does not exist.
 
 ## [0.6.0] — 2026-05-04 — `uuidv7` CLI shipped
 

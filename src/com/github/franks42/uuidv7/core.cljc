@@ -39,7 +39,7 @@
 ;; Maven coord on Clojars and the version reported by bin/uuidv7
 ;; --version. Keep this as a single-line def — the release workflow
 ;; greps for the version constant and breaks on multi-line forms.
-(def version "0.6.0")
+(def version "0.7.0")
 
 ;; ---------------------------------------------------------------------------
 ;; Platform helpers

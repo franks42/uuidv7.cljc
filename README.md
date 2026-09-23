@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.6.0"}
+com.github.franks42/uuidv7 {:mvn/version "0.7.0"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.6.0"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.7.0"}}}
 ```
 
 ### nbb (nbb.edn)
@@ -81,11 +81,11 @@ nbb cannot read JAR files, so use a git dependency instead:
 |---|---|
 | `(uuidv7)` | Generate a UUIDv7 with monotonic sub-millisecond ordering |
 | `(make-generator)` | Create an independent generator with its own monotonic state |
-| `(uuidv7? uuid)` | Check if a UUID is version 7 |
-| `(extract-ts uuid)` | Extract Unix epoch timestamp (ms) from a UUIDv7 (throws if not v7) |
-| `(extract-inst uuid)` | Extract creation timestamp as a Date/inst (throws if not v7) |
-| `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
-| `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` (throws if not v7) |
+| `(uuidv7? uuid)` | True for a v7 UUID object or canonical 8-4-4-4-12 string (either case); false for anything else, never throws |
+| `(extract-ts uuid)` | Extract Unix epoch timestamp (ms) from a UUIDv7 (throws `ex-info` if not v7) |
+| `(extract-inst uuid)` | Extract creation timestamp as a Date/inst (throws `ex-info` if not v7) |
+| `(extract-counter uuid)` | Extract the 74-bit counter as `[rand-a rand-b-hi rand-b-lo]` (throws `ex-info` if not v7) |
+| `(extract-key uuid)` | Extract sortable composite key `[ts rand-a rand-b-hi rand-b-lo]` (throws `ex-info` if not v7) |
 
 ## Command line
 
@@ -94,7 +94,7 @@ UUIDv7s. Download it from the
 [latest release](https://github.com/franks42/uuidv7.cljc/releases/latest):
 
 ```bash
-curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.6.0/uuidv7-v0.6.0
+curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.7.0/uuidv7-v0.7.0
 chmod +x uuidv7
 ```
 
@@ -131,12 +131,12 @@ error. Run `uuidv7 <subcommand> --help` for details.
 To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scittle), load the `.cljc` source file via a `<script>` tag. Scittle v0.6.17+ handles `#?` reader conditionals in `.cljc` files correctly.
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/scittle@0.7.30/dist/scittle.js"
+<script src="https://cdn.jsdelivr.net/npm/scittle@0.8.33/dist/scittle.js"
         type="application/javascript"></script>
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.6.0/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.0/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -148,7 +148,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.6.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.0/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");

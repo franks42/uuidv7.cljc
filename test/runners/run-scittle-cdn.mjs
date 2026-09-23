@@ -26,7 +26,7 @@ const LIB = `https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@${REF}` +
 // Same Scittle release as test/runners/test_scittle/index.html
 const PAGE = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<script src="https://cdn.jsdelivr.net/npm/scittle@0.7.30/dist/scittle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/scittle@0.8.33/dist/scittle.js"></script>
 </head><body>
 <script type="application/x-scittle" src="${LIB}"></script>
 <script type="application/x-scittle" src="/smoke.cljs"></script>

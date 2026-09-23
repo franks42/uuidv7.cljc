@@ -1,13 +1,13 @@
 # uuidv7.cljc — Project Guide
 
-Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencies, runs on all major Clojure platforms. **As of v0.6.0**, ships a command-line filter (`bin/uuidv7`) alongside the library.
+Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencies, runs on all major Clojure platforms. **Since v0.6.0**, ships a command-line filter (`bin/uuidv7`) alongside the library.
 
 ## Current state
 
-- Latest release: **v0.6.0**
-- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.6.0"}`
-- CLI on GitHub Releases: `uuidv7-v0.6.0` asset
-- Unreleased on `main`: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG `[Unreleased]`.
+- Latest release: **v0.7.0**
+- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.0"}`
+- CLI on GitHub Releases: `uuidv7-v0.7.0` asset
+- 0.7.0: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG.
 - Library tests: 14 on JVM/bb (incl. JVM concurrency test), 13 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
 
 ## Project Structure
@@ -93,13 +93,13 @@ when main's tests match that release — use them right after a release, or
 check out the tag first. Replace `X.Y.Z` with the release:
 ```bash
 # CLJ against Clojars
-clojure -Sdeps '{:paths ["test"] :deps {com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"} org.clojure/clojure {:mvn/version "1.12.4"}}}' -M -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
+clojure -Sdeps '{:paths ["test"] :deps {com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"} org.clojure/clojure {:mvn/version "1.12.6"}}}' -M -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 
 # BB against Clojars
 bb -cp "$(clojure -Sdeps '{:paths [] :deps {com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"}}}' -Spath):test" -e "(require '[clojure.test :as t] '[uuidv7.core-test]) (t/run-tests 'uuidv7.core-test)"
 
 # CLJS against Clojars (compile + run)
-clojure -Sdeps '{:paths ["test" "test/runners"] :deps {org.clojure/clojure {:mvn/version "1.12.4"} org.clojure/clojurescript {:mvn/version "1.11.132"} com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"}}}' -M -m cljs.main --target node --output-dir target/cljs-clojars-test --output-to target/cljs-clojars-test/test-cljs.js -c test-cljs.core
+clojure -Sdeps '{:paths ["test" "test/runners"] :deps {org.clojure/clojure {:mvn/version "1.12.6"} org.clojure/clojurescript {:mvn/version "1.12.145"} com.github.franks42/uuidv7 {:mvn/version "X.Y.Z"}}}' -M -m cljs.main --target node --output-dir target/cljs-clojars-test --output-to target/cljs-clojars-test/test-cljs.js -c test-cljs.core
 node target/cljs-clojars-test/test-cljs.js
 ```
 
