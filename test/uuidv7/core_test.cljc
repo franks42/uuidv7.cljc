@@ -274,3 +274,82 @@
                          (catch :default e (:type (ex-data e))))))
              (finally (js/Object.defineProperty js/globalThis "crypto" d)))
            (is (some? (uuidv7/random-bytes 4)) "crypto not configurable here; guard not exercised"))))))
+
+;; ---------------------------------------------------------------------------
+;; The pure core: next-state and state->uuid take everything as arguments
+;; (clock reading and random bytes included), so they get known-answer tests.
+;; ---------------------------------------------------------------------------
+
+(def ^:private next-state #'uuidv7/next-state)
+(def ^:private state->uuid #'uuidv7/state->uuid)
+
+(defn- rnd
+  "14 'random' bytes, chosen: 10 seed bytes then 4 increment bytes."
+  [seed10 inc4]
+  (let [xs (concat seed10 inc4)]
+    #?(:clj  (byte-array (map unchecked-byte xs))
+       :cljs (js/Uint8Array.from (clj->js xs)))))
+
+(def ^:private seed-a
+  "Seed bytes giving rand-a 0xABC, rand-b-hi 0x12345678 mod 2^30, rand-b-lo 0x9ABCDEF0."
+  [0xFA 0xBC 0x12 0x34 0x56 0x78 0x9A 0xBC 0xDE 0xF0])
+
+(def ^:private field-max {:a 4095 :hi 1073741823 :lo 4294967295})
+
+(deftest test-next-state-known-answers
+  (testing "new millisecond: fields come from the 10 seed bytes (mod 2^12, 2^30, 2^32)"
+    (is (= {:ts 1000 :rand-a 0xABC :rand-b-hi (mod 0x12345678 1073741824) :rand-b-lo 0x9ABCDEF0}
+           (next-state {:ts 999 :rand-a 1 :rand-b-hi 2 :rand-b-lo 3} 1000 (rnd seed-a [0 0 0 0])))))
+  (testing "same millisecond: counter += 1 + (increment bytes mod 2^31)"
+    (is (= {:ts 1000 :rand-a 1 :rand-b-hi 2 :rand-b-lo 8}
+           (next-state {:ts 1000 :rand-a 1 :rand-b-hi 2 :rand-b-lo 3} 1000 (rnd seed-a [0 0 0 4])))))
+  (testing "increment range: [1, 2^31]"
+    (is (= 1 (:rand-b-lo (next-state {:ts 5 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0} 5 (rnd seed-a [0 0 0 0])))))
+    (is (= 2147483648 (:rand-b-lo (next-state {:ts 5 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0} 5
+                                              (rnd seed-a [0xFF 0xFF 0xFF 0xFF]))))
+        "0xFFFFFFFF mod 2^31 = 2^31 - 1, plus one"))
+  (testing "carry from rand-b-lo into rand-b-hi"
+    (is (= {:ts 7 :rand-a 3 :rand-b-hi 11 :rand-b-lo 0}
+           (next-state {:ts 7 :rand-a 3 :rand-b-hi 10 :rand-b-lo (:lo field-max)} 7 (rnd seed-a [0 0 0 0])))))
+  (testing "carry through rand-b-hi into rand-a"
+    (is (= {:ts 7 :rand-a 4 :rand-b-hi 0 :rand-b-lo 0}
+           (next-state {:ts 7 :rand-a 3 :rand-b-hi (:hi field-max) :rand-b-lo (:lo field-max)} 7
+                       (rnd seed-a [0 0 0 0])))))
+  (testing "74-bit overflow: ts advances by one and the counter reseeds from the seed bytes"
+    (is (= {:ts 8 :rand-a 0xABC :rand-b-hi (mod 0x12345678 1073741824) :rand-b-lo 0x9ABCDEF0}
+           (next-state {:ts 7 :rand-a (:a field-max) :rand-b-hi (:hi field-max) :rand-b-lo (:lo field-max)} 7
+                       (rnd seed-a [0 0 0 0])))))
+  (testing "clock rollback: ts is kept and the counter still increases"
+    (is (= {:ts 1000 :rand-a 1 :rand-b-hi 2 :rand-b-lo 4}
+           (next-state {:ts 1000 :rand-a 1 :rand-b-hi 2 :rand-b-lo 3} 400 (rnd seed-a [0 0 0 0]))))))
+
+(deftest test-next-state-is-pure
+  (let [s0 {:ts 1000 :rand-a 1 :rand-b-hi 2 :rand-b-lo 3}
+        r  (rnd seed-a [0 0 1 0])
+        before (vec (byte-seq r))]
+    (is (= (next-state s0 1000 r) (next-state s0 1000 r)) "same arguments, same result")
+    (is (= (next-state s0 1001 r) (next-state s0 1001 r)))
+    (is (= before (vec (byte-seq r))) "the random bytes are not modified")
+    (testing "exactly 14 random bytes are required"
+      (doseq [n [0 10 13 15]]
+        (is (= :com.github.franks42.uuidv7.core/bad-random-bytes
+               (try (next-state s0 1000 (rnd (repeat (min n 10) 0) (repeat (max 0 (- n 10)) 0))) :no-throw
+                    (catch #?(:clj Exception :cljs :default) e (:type (ex-data e)))))
+            (str n " bytes"))))))
+
+(deftest test-next-state-is-monotonic
+  (testing "from any state, for any clock reading and random bytes, the UUID increases"
+    (doseq [s     [{:ts 1000 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0}
+                   {:ts 1000 :rand-a 4095 :rand-b-hi 1073741823 :rand-b-lo 4294967295}
+                   {:ts 1000 :rand-a 2048 :rand-b-hi 5 :rand-b-lo 4294967000}]
+            now   [0 999 1000 1001 5000]
+            inc4  [[0 0 0 0] [0xFF 0xFF 0xFF 0xFF] [0x12 0x34 0x56 0x78]]
+            seed  [seed-a (repeat 10 0) (repeat 10 0xFF)]]
+      (is (uuid<? (state->uuid s) (state->uuid (next-state s now (rnd seed inc4))))
+          (pr-str s now inc4 seed)))))
+
+(deftest test-state->uuid-known-answer
+  (is (= "0195a4c8-1234-7abc-9234-56789abcdef0"
+         (str (state->uuid {:ts 0x0195a4c81234 :rand-a 0xABC
+                            :rand-b-hi (mod 0x12345678 1073741824) :rand-b-lo 0x9ABCDEF0}))))
+  (is (uuidv7/uuidv7? (state->uuid {:ts 0 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0}))))

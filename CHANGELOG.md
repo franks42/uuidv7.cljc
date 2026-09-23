@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+### Changed
+
+- **The generator step is a pure function.** `next-state` now takes the
+  clock reading and 14 random bytes as arguments. The shell (`uuidv7`,
+  and the function `make-generator` returns) reads the clock and draws the
+  bytes *before* `swap!`. The `swap!` update function therefore has no side
+  effects: a retry under contention cannot draw randomness or read the
+  clock again. The output format and distribution are unchanged. Each
+  UUID now draws 14 random bytes in one call, where before it drew 10 or 4.
+- Docstrings say which functions are impure and what they touch: the
+  clock, the CSPRNG, or generator state.
+
+### Added (tests)
+
+- Known-answer tests for the pure core, covering every `next-state`
+  branch:
+  - a new millisecond;
+  - a same-millisecond increment, at both ends of its range, 1 and 2^31;
+  - both carries;
+  - the 74-bit overflow;
+  - a clock rollback.
+- A known answer for `state->uuid`, and a monotonicity check across
+  states, clock readings and random inputs. Each branch was shown to be
+  covered by breaking it and watching the tests fail.
+
 ## [0.7.1] — 2026-09-23 — Secure randomness on ClojureScript, nbb and Scittle
 
 ### Fixed

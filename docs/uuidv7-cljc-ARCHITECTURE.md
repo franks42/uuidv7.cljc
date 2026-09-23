@@ -110,7 +110,13 @@ This is the standard approach recommended by RFC 9562 and used by all major impl
 
 ## Concurrency
 
-State is held in a Clojure `atom`, updated via `swap!`. This gives you:
+State is held in a Clojure `atom`, updated via `swap!`. The update
+function, `next-state`, is **pure**: it takes the previous state, the clock
+reading and 14 random bytes, all of which the caller reads *before* the
+`swap!`. A retried `swap!` therefore cannot draw randomness or read the
+clock again, and every branch has known-answer tests: a new millisecond, a
+same-millisecond increment, both carries, the 74-bit overflow, and a clock
+rollback. This gives you:
 
 - **JVM/Babashka**: Lock-free CAS (compare-and-swap). Multiple threads can call `uuidv7` concurrently; `swap!` retries on contention. No locks, no blocking.
 - **ClojureScript/nbb/Scittle**: Single-threaded event loop, so `swap!` is effectively just a mutation. No contention possible.

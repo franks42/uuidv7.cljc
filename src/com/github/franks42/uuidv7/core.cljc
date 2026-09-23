@@ -45,7 +45,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- now-ms
-  "Current Unix epoch time in milliseconds."
+  "Current Unix epoch time in milliseconds. Impure: reads the clock."
   []
   #?(:clj  (System/currentTimeMillis)
      :cljs (js/Date.now)))
@@ -86,7 +86,9 @@
      65536))
 
 (defn random-bytes
-  "Returns n bytes from the platform's cryptographically secure generator:
+  "Impure: draws from the platform's CSPRNG.
+
+   Returns n bytes from the platform's cryptographically secure generator:
    a byte[] from java.security.SecureRandom on the JVM and bb, a Uint8Array
    from crypto.getRandomValues on ClojureScript, nbb and Scittle.
 
@@ -115,24 +117,26 @@
           0
           (range k)))
 
-(defn- random-bits
-  "Generate random values for the 74-bit counter:
-     rand-a    — 12 bits  [0, 4095]
-     rand-b-hi — 30 bits  [0, 1073741823]
-     rand-b-lo — 32 bits  [0, 4294967295]
-   Returns [rand-a rand-b-hi rand-b-lo]."
-  []
-  ;; 10 random bytes; mod by a power of two keeps each field uniform.
-  (let [bs (random-bytes 10)]
-    [(mod (bytes->uint bs 0 2) 4096)          ;; 12 of 16 bits
-     (mod (bytes->uint bs 2 4) 1073741824)    ;; 30 of 32 bits
-     (bytes->uint bs 6 4)]))                  ;; 32 bits
+(def ^:private random-byte-count
+  "Random bytes one generator step consumes: 10 to seed the 74-bit counter
+   on a new millisecond, 4 for the same-millisecond increment."
+  14)
 
-(defn- random-increment
-  "Random increment in [1, 2^31]. Safe on all platforms (within JS
-   integer precision) and large enough to preserve unpredictability."
-  []
-  (inc (mod (bytes->uint (random-bytes 4) 0 4) 2147483648)))
+(defn- seed-fields
+  "The 74-bit counter seeded from bytes 0-9 of rnd, as
+   [rand-a rand-b-hi rand-b-lo] (12, 30 and 32 bits). Mod by a power of two
+   keeps each field uniform. Pure."
+  [rnd]
+  [(mod (bytes->uint rnd 0 2) 4096)          ;; 12 of 16 bits
+   (mod (bytes->uint rnd 2 4) 1073741824)    ;; 30 of 32 bits
+   (bytes->uint rnd 6 4)])                   ;; 32 bits
+
+(defn- increment
+  "The same-millisecond increment from bytes 10-13 of rnd: in [1, 2^31],
+   within JS integer precision and large enough to keep the counter
+   unpredictable. Pure."
+  [rnd]
+  (inc (mod (bytes->uint rnd 10 4) 2147483648)))
 
 ;; ---------------------------------------------------------------------------
 ;; Generator state
@@ -152,17 +156,24 @@
   (atom {:ts 0 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0}))
 
 (defn- next-state
-  "Advance the generator state for timestamp `now`.
-   - now > ts  → new millisecond: seed fresh random bits.
-   - now <= ts → same (or clock rollback): increment counter, keep ts.
-   On the astronomically unlikely 74-bit overflow, advance ts by 1."
-  [{:keys [ts rand-a rand-b-hi rand-b-lo]} now]
+  "The generator state after `state`, for clock reading `now` and 14 random
+   bytes `rnd`. Pure: the caller reads the clock and draws the bytes, so
+   this function can run inside swap! (which may retry) and has
+   known-answer tests.
+   - now > ts  → new millisecond: seed the counter from rnd.
+   - now <= ts → same ms (or clock rollback): increment the counter, keep ts.
+   On the astronomically unlikely 74-bit overflow, advance ts by 1 and
+   reseed."
+  [{:keys [ts rand-a rand-b-hi rand-b-lo]} now rnd]
+  (when-not (and (some? rnd) (= random-byte-count (alength rnd)))
+    (throw (ex-info (str "next-state needs exactly " random-byte-count " random bytes")
+                    {:type ::bad-random-bytes})))
   (if (> now ts)
     ;; ---- new millisecond ----
-    (let [[a bh bl] (random-bits)]
+    (let [[a bh bl] (seed-fields rnd)]
       {:ts now :rand-a a :rand-b-hi bh :rand-b-lo bl})
     ;; ---- same / earlier ms — increment 74-bit counter ----
-    (let [inc-val  (random-increment)
+    (let [inc-val  (increment rnd)
           sum-lo   (+ rand-b-lo inc-val)
           carry-hi (quot sum-lo 4294967296)               ;; 2^32
           new-lo   (rem  sum-lo 4294967296)
@@ -173,7 +184,7 @@
       (if (>= new-a 4096)
         ;; overflow — advance timestamp, reseed (cannot break monotonicity
         ;; because the new ts is strictly greater than the old ts)
-        (let [[a bh bl] (random-bits)]
+        (let [[a bh bl] (seed-fields rnd)]
           {:ts (inc ts) :rand-a a :rand-b-hi bh :rand-b-lo bl})
         {:ts ts :rand-a new-a :rand-b-hi new-hi :rand-b-lo new-lo}))))
 
@@ -196,7 +207,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- state->uuid
-  "Construct a platform-native UUID from generator state."
+  "Construct a platform-native UUID from generator state. Pure."
   [{:keys [ts rand-a rand-b-hi rand-b-lo]}]
   #?(:clj
      ;; JVM / Babashka — use the two-long constructor for efficiency
@@ -258,28 +269,41 @@
 ;; Public API
 ;; ---------------------------------------------------------------------------
 
+(defn- advance!
+  "The imperative shell around next-state: read the clock and draw the
+   random bytes first, then advance the generator atom a. The swap! update
+   function is pure, so a retry under contention cannot draw twice or read
+   the clock twice. Impure: clock, CSPRNG, mutates a."
+  [a]
+  (let [now (now-ms)
+        rnd (random-bytes random-byte-count)]
+    (state->uuid (swap! a next-state now rnd))))
+
 (defn uuidv7
   "Generate a UUIDv7 with monotonic sub-millisecond ordering.
+
+   Impure: reads the clock and the CSPRNG, and advances the default
+   generator's state.
 
    Returns java.util.UUID on JVM/BB, cljs.core/UUID on CLJS/nbb/scittle.
 
    Successive calls from the same generator are guaranteed to produce
    strictly increasing UUIDs, even within the same millisecond."
   []
-  (let [now (now-ms)]
-    (state->uuid (swap! state next-state now))))
+  (advance! state))
 
 (defn make-generator
   "Create an independent UUIDv7 generator with its own monotonic state.
    Returns a zero-argument function that produces UUIDv7s.
 
+   The returned function is impure in the same way as uuidv7: clock,
+   CSPRNG, and its own state.
+
    Useful when you need multiple independent monotonic sequences,
    e.g. per-subsystem or per-thread dedicated generators."
   []
   (let [gen-state (atom {:ts 0 :rand-a 0 :rand-b-hi 0 :rand-b-lo 0})]
-    (fn []
-      (let [now (now-ms)]
-        (state->uuid (swap! gen-state next-state now))))))
+    (fn [] (advance! gen-state))))
 
 (defn extract-ts
   "Extract the Unix epoch timestamp (milliseconds) from a UUIDv7.

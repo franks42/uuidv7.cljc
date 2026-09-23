@@ -212,6 +212,11 @@ uuidv7 gen --format edn | cedn | sha256sum      # canonical bytes via cedn CLI
 - **Reader conditionals**: Two main branches — `:clj` (JVM + BB) and `:cljs` (CLJS + nbb + scittle). A third `:scittle` branch at end of core.cljc resets namespace.
 - **`:scittle` feature flag**: `#?(:scittle (in-ns 'user))` resets namespace so callers can use bare `(require ...)`. Invisible to all other platforms.
 - **Three-field counter split**: 12 + 30 + 32 bits keeps each value within JS safe-integer range
+- **Functional core, imperative shell.** `next-state` (state, now, 14
+  random bytes → state) and `state->uuid` are pure and have known-answer
+  tests. `advance!` reads the clock and draws the bytes *before* `swap!`;
+  never put a side effect inside a `swap!` update function (it can retry).
+  Impure functions say so first in their docstring.
 - **Platform CSPRNG, called directly** (`random-bytes`): `SecureRandom` on JVM/bb, `crypto.getRandomValues` on CLJS/nbb/Scittle (65,536-byte chunks, throws when absent). NOT `random-uuid`: `cljs.core/random-uuid` is `Math.random`, which uuidv7 used until 0.7.1. `test-no-math-random` pins `Math.random` to catch a regression. No libsodium dependency, by design: uuidv7 stays dependency-free.
 - **`parse-uuid` over `uuid`**: `uuid` constructor exists in ClojureScript but is not mapped to the `uuid` var in scittle; `parse-uuid` works everywhere
 - **UUIDv7 strings are sortable keys**: `(str uuid)` preserves generation order under string comparison — no extraction needed for sorting
