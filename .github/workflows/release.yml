@@ -89,6 +89,9 @@ jobs:
         # `clojure -T:build deploy` runs in tool mode.
         run: clojure -P
 
+      - name: Run library tests (JVM)
+        run: bb test:jvm
+
       - name: Run library tests (bb)
         run: bb test:bb
 

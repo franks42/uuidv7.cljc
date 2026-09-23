@@ -1,0 +1,49 @@
+name: published
+
+# Tests what users actually load, which ci.yml cannot: the library on the
+# jsdelivr CDN (for main and for the release the README pins) and the
+# README's nbb git coordinates, resolved with an empty gitlibs cache.
+# These hit the network, so they run on a schedule instead of on every push.
+
+on:
+  schedule:
+    - cron: '23 6 * * 1'   # Mondays 06:23 UTC
+  workflow_dispatch:
+
+jobs:
+  published:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # nbb resolves git deps through bb, which needs a JVM for tools.deps.
+      - name: Install JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install bb, clj
+        uses: DeLaGuardo/setup-clojure@13.6.0
+        with:
+          bb: 'latest'
+          cli: 'latest'
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm deps and nbb
+        run: |
+          npm ci
+          npm i -g nbb
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Library from the CDN at main
+        run: bb test:scittle-cdn main
+
+      - name: README's pinned CDN release and nbb git dep
+        run: bb test:published

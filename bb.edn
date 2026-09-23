@@ -9,6 +9,68 @@
                (when (pos? (+ (:fail r) (:error r)))
                  (System/exit 1))))}
 
+  test:jvm
+  {:doc  "Run library tests on the JVM"
+   ;; `clojure`, not `clj`: the rlwrap wrapper is not on CI runners
+   :task (shell "clojure" "-M:test-clj" "-e"
+                (str "(require '[clojure.test :as t] 'uuidv7.core-test)"
+                     "(let [r (t/run-tests 'uuidv7.core-test)]"
+                     "  (System/exit (if (pos? (+ (:fail r) (:error r))) 1 0)))"))}
+
+  test:nbb
+  {:doc  "Run library tests on nbb (Node.js)"
+   :task (shell "nbb" "-cp" "src:test" "test/runners/test_nbb/core.cljs")}
+
+  test:cljs
+  {:doc  "Compile the library tests with ClojureScript and run them on Node.js"
+   :task (do (shell "clojure" "-M:test-cljs")
+             (shell "node" "target/cljs-test-out/test-cljs.js"))}
+
+  test:scittle
+  {:doc  "Run library tests in Scittle (headless Chromium via Playwright)"
+   ;; Prerequisite (one-time): npm install && npx playwright install chromium
+   :task (shell "node" "test/runners/run-scittle.mjs")}
+
+  test:scittle-cdn
+  {:doc  "Smoke-test the library from jsdelivr in Scittle (optional git ref, default main; network)"
+   :task (apply shell "node" "test/runners/run-scittle-cdn.mjs" *command-line-args*)}
+
+  test:nbb-git
+  {:doc  "Smoke-test the README's nbb.edn git coordinates, with an empty gitlibs cache (network)"
+   :requires ([babashka.fs :as fs])
+   :task (let [readme (slurp "README.md")
+               deps   (second (re-find (re-pattern "(?s)### nbb \\(nbb\\.edn\\).*?```clojure\n(.*?)```")
+                                       readme))
+               tag    (second (re-find (re-pattern ":git/tag \"v([^\"]+)\"") (str deps)))
+               tmp    (str (fs/create-temp-dir {:prefix "uuidv7-nbb-git-"}))
+               root   (System/getProperty "user.dir")]
+           (when-not (and deps tag)
+             (println "ERROR: no nbb.edn block with a :git/tag found in README.md")
+             (System/exit 1))
+           (spit (str tmp "/nbb.edn") deps)
+           (print deps)
+           (flush)
+           (try
+             (let [out (:out (shell {:dir tmp :out :string
+                                     :extra-env {"GITLIBS" (str tmp "/gitlibs")}}
+                                    "nbb" "-cp" (str root "/test/published")
+                                    "-e" "(require 'published-smoke)"))]
+               (print out)
+               (when-not (clojure.string/includes? out (str "SMOKE OK " tag))
+                 (println "ERROR: expected uuidv7" tag "from the README's git dep")
+                 (System/exit 1)))
+             (finally (fs/delete-tree tmp))))}
+
+  test:published
+  {:doc  "Test what the README tells users to load: its Scittle CDN ref and nbb git dep (network)"
+   :task (let [ref (second (re-find (re-pattern "cdn\\.jsdelivr\\.net/gh/franks42/uuidv7\\.cljc@([^/]+)/")
+                                    (slurp "README.md")))]
+           (when-not ref
+             (println "ERROR: no jsdelivr uuidv7 URL found in README.md")
+             (System/exit 1))
+           (shell "node" "test/runners/run-scittle-cdn.mjs" ref)
+           (run 'test:nbb-git))}
+
   test:cli
   {:doc  "Run CLI integration tests (shells out to bin/uuidv7)"
    :task (do (require 'clojure.test 'uuidv7.cli-test)
@@ -63,7 +125,9 @@
 
   lint
   {:doc  "Run clj-kondo linter"
-   :task (shell "clj-kondo" "--lint" "src" "test")}
+   :task (do (shell "clj-kondo" "--lint" "src" "test")
+             ;; no .clj extension, so name the language explicitly
+             (shell "clj-kondo" "--lang" "clj" "--lint" "bin/uuidv7"))}
 
   fmt
   {:doc  "Check cljfmt formatting"
@@ -78,8 +142,12 @@
    :depends [lint fmt]}
 
   test:all
-  {:doc  "Run library tests + CLI tests + lint + fmt"
-   :task (do (run 'test:bb)
+  {:doc  "Run library tests on every platform + CLI tests + lint + fmt"
+   :task (do (run 'test:jvm)
+             (run 'test:bb)
+             (run 'test:nbb)
+             (run 'test:cljs)
+             (run 'test:scittle)
              (run 'test:cli)
              (run 'lint)
              (run 'fmt))}}}

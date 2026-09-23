@@ -9,7 +9,8 @@
       (do
         (println "Running tests against JAR:" jar-path)
         (load-file "test/uuidv7/core_test.cljc")
-        (run-tests 'uuidv7.core-test))
+        (let [{:keys [fail error]} (run-tests 'uuidv7.core-test)]
+          (System/exit (if (pos? (+ fail error)) 1 0))))
       (do
         (println "ERROR: JAR not found at" jar-path)
         (println "Run 'clojure -T:build jar' first to build the JAR.")

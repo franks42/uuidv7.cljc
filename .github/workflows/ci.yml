@@ -1,0 +1,112 @@
+name: ci
+
+# Runs on every push to main and on pull requests. The release workflow
+# (release.yml) repeats the JVM/bb/CLI checks before publishing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # JVM, Babashka, the CLI, lint and format.
+  jvm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install bb, clj, clj-kondo, cljfmt
+        uses: DeLaGuardo/setup-clojure@13.6.0
+        with:
+          bb: 'latest'
+          cli: 'latest'
+          clj-kondo: 'latest'
+          cljfmt: 'latest'
+
+      - name: Cache Maven and gitlibs
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: deps-jvm-${{ runner.os }}-${{ hashFiles('deps.edn', 'bb.edn') }}
+          restore-keys: deps-jvm-${{ runner.os }}-
+
+      - name: Run library tests (JVM)
+        run: bb test:jvm
+
+      - name: Run library tests (bb)
+        run: bb test:bb
+
+      - name: Run CLI tests (dev mode)
+        run: bb test:cli
+
+      - name: Lint
+        run: bb lint
+
+      - name: Format check
+        run: bb fmt
+
+  # ClojureScript, nbb and the browser. Separate job so the browser is
+  # downloaded once, in parallel with the JVM job. Compiled CLJS needs a
+  # JVM; nbb and Scittle do not.
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install bb, clj
+        uses: DeLaGuardo/setup-clojure@13.6.0
+        with:
+          bb: 'latest'
+          cli: 'latest'
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Cache Maven and gitlibs
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+          key: deps-js-${{ runner.os }}-${{ hashFiles('deps.edn', 'bb.edn') }}
+          restore-keys: deps-js-${{ runner.os }}-
+
+      - name: Install npm deps and nbb
+        run: |
+          npm ci
+          npm i -g nbb
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run library tests (compiled ClojureScript / Node)
+        run: bb test:cljs
+
+      - name: Run library tests (nbb)
+        run: bb test:nbb
+
+      - name: Run library tests (Scittle, headless Chromium)
+        run: bb test:scittle
