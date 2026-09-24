@@ -48,7 +48,12 @@ async function run() {
   try {
     const url = `http://127.0.0.1:${server.address().port}${PAGE}`;
     console.log(`Loading ${url}`);
-    browser = await chromium.launch({ headless: true });
+    // CHROME_PATH: use an installed Chrome instead of Playwright's download
+    // (CI does this; the download stalls on GitHub runners).
+    browser = await chromium.launch({
+      headless: true,
+      ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
+    });
     const page = await browser.newPage();
     page.on("console", (msg) => {
       if (msg.type() === "error") console.error(msg.text());
