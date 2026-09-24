@@ -30,7 +30,7 @@ nbb cannot read JAR files, so use a git dependency instead:
 {:deps {com.github.franks42/uuidv7
         {:git/url "https://github.com/franks42/uuidv7.cljc"
          :git/tag "v0.7.2"
-         :git/sha "6eb3fe1"}}}
+         :git/sha "fa1ad47"}}}
 ```
 
 ## Usage
