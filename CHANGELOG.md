@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+## [0.7.2] — 2026-09-23 — Pure generator step
+
 ### Changed
 
 - **The generator step is a pure function.** `next-state` now takes the
@@ -33,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A known answer for `state->uuid`, and a monotonicity check across
   states, clock readings and random inputs. Each branch was shown to be
   covered by breaking it and watching the tests fail.
+
+### Internal
+
+- The private validator `check-uuidv7!` is now `check-uuidv7`. Under the
+  naming convention, `!` marks writes, not "may throw".
+- CI uses the runner's preinstalled Chrome for the Scittle tests, because
+  Playwright's browser download stalls on GitHub runners. Every job has a
+  time limit.
 
 ## [0.7.1] — 2026-09-23 — Secure randomness on ClojureScript, nbb and Scittle
 
