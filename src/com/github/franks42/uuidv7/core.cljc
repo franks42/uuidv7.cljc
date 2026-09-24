@@ -256,7 +256,7 @@
   [uuid]
   (boolean (re-matches uuidv7-re (str uuid))))
 
-(defn- check-uuidv7!
+(defn- check-uuidv7
   "Throw unless `uuid` is a UUIDv7. An ex-info rather than an assert:
    asserts can be compiled out, and AssertionError escapes a
    (catch Exception ...)."
@@ -311,7 +311,7 @@
 
    Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (check-uuidv7! "extract-ts" uuid)
+  (check-uuidv7 "extract-ts" uuid)
   (let [s (str uuid)]
     (parse-hex (str (subs s 0 8) (subs s 9 13)))))
 
@@ -327,7 +327,7 @@
 
    Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (check-uuidv7! "extract-counter" uuid)
+  (check-uuidv7 "extract-counter" uuid)
   (let [s (str uuid)]
     [(parse-hex (subs s 15 18))                                   ;; rand-a:    3 hex = 12 bits
      (+ (* (bit-and (parse-hex (subs s 19 23)) 0x3FFF) 65536)     ;; rand-b-hi: 14 bits from g4
@@ -345,7 +345,7 @@
 
    Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (check-uuidv7! "extract-key" uuid)
+  (check-uuidv7 "extract-key" uuid)
   (into [(extract-ts uuid)] (extract-counter uuid)))
 
 (defn extract-inst
@@ -354,7 +354,7 @@
 
    Throws ex-info {:type ::not-uuidv7} if the UUID is not version 7."
   [uuid]
-  (check-uuidv7! "extract-inst" uuid)
+  (check-uuidv7 "extract-inst" uuid)
   (let [ts (extract-ts uuid)]
     #?(:clj  (java.util.Date. (long ts))
        :cljs (js/Date. ts))))
