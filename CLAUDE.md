@@ -220,3 +220,40 @@ uuidv7 gen --format edn | cedn | sha256sum      # canonical bytes via cedn CLI
 - **Platform CSPRNG, called directly** (`random-bytes`): `SecureRandom` on JVM/bb, `crypto.getRandomValues` on CLJS/nbb/Scittle (65,536-byte chunks, throws when absent). NOT `random-uuid`: `cljs.core/random-uuid` is `Math.random`, which uuidv7 used until 0.7.1. `test-no-math-random` pins `Math.random` to catch a regression. No libsodium dependency, by design: uuidv7 stays dependency-free.
 - **`parse-uuid` over `uuid`**: `uuid` constructor exists in ClojureScript but is not mapped to the `uuid` var in scittle; `parse-uuid` works everywhere
 - **UUIDv7 strings are sortable keys**: `(str uuid)` preserves generation order under string comparison — no extraction needed for sorting
+
+## Naming: purity, `!` and exceptions
+
+The same convention holds in canonical-edn, uuidv7, nacljc and signet
+(decided 2026-09-23).
+
+- **`!` means the call writes state that outlives it.** That covers
+  atoms, volatiles and transients, global registries (such as signet's key
+  store), the contents of an argument (wiping a buffer, consuming a
+  session state), native memory the caller owns, files, databases and
+  network sends. This is clojure.core's line (`reset!`, `swap!`, `conj!`),
+  extended to external writes, as in the Clojure style guide's `save-user!`.
+- **Reads get no `!`, even impure ones:** the clock, the random
+  generator (drawing is not a write), the environment, system properties
+  and file reads. Printing and logging are diagnostic and get no `!`
+  either. The docstring says what the function reads.
+- **`!` never means "may throw".** That is the Elixir and Rails meaning,
+  and it is not used here. An exception signals abnormal execution, and
+  Clojure never forces a caller to catch one, so throwing is documented,
+  not encoded in the name.
+- **Docstrings** state these facts in their first paragraph, in fixed
+  wording:
+  - `Impure: <what it reads or writes>.` for every impure function.
+  - `Throws ex-info {:type ::x} when …`, listing every `:type`. The
+    ex-data `:type` is the contract; callers dispatch on it, never on the
+    message.
+  - `Never throws: …` for functions that promise it, such as verifiers
+    returning `{:valid? false …}`.
+- **Validators** that return their argument or throw are named `check-…`
+  (for example `check-bytes`). Helpers whose only job is to throw are named
+  `throw-…`.
+- **Prefer a pure core with a thin `!` shell** (functional core, imperative
+  shell). When a function both computes and writes, offer the pure one and
+  make the write a separate, explicit `!` call, rather than only renaming.
+
+Existing names that break this rule were inventoried on 2026-09-23 and
+have not been renamed yet.
