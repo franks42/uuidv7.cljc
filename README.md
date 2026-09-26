@@ -13,13 +13,13 @@ Implements Method 3 (monotonic random counter) with:
 ### deps.edn
 
 ```clojure
-com.github.franks42/uuidv7 {:mvn/version "0.7.2"}
+com.github.franks42/uuidv7 {:mvn/version "0.7.3"}
 ```
 
 ### Babashka (bb.edn)
 
 ```clojure
-{:deps {com.github.franks42/uuidv7 {:mvn/version "0.7.2"}}}
+{:deps {com.github.franks42/uuidv7 {:mvn/version "0.7.3"}}}
 ```
 
 ### nbb (nbb.edn)
@@ -29,7 +29,7 @@ nbb cannot read JAR files, so use a git dependency instead:
 ```clojure
 {:deps {com.github.franks42/uuidv7
         {:git/url "https://github.com/franks42/uuidv7.cljc"
-         :git/tag "v0.7.2"
+         :git/tag "v0.7.3"
          :git/sha "fa1ad47"}}}
 ```
 
@@ -102,7 +102,7 @@ UUIDv7s. Download it from the
 [latest release](https://github.com/franks42/uuidv7.cljc/releases/latest):
 
 ```bash
-curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.7.2/uuidv7-v0.7.2
+curl -fsSL -o uuidv7 https://github.com/franks42/uuidv7.cljc/releases/download/v0.7.3/uuidv7-v0.7.3
 chmod +x uuidv7
 ```
 
@@ -144,7 +144,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 
 <!-- Load the library -->
 <script type="application/x-scittle"
-        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.2/src/com/github/franks42/uuidv7/core.cljc"></script>
+        src="https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.3/src/com/github/franks42/uuidv7/core.cljc"></script>
 
 <!-- Use it -->
 <script type="application/x-scittle">
@@ -156,7 +156,7 @@ To use uuidv7 in a browser page with [scittle](https://github.com/babashka/scitt
 Alternatively, fetch the source via JavaScript and evaluate it explicitly:
 
 ```javascript
-var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.2/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
+var src = await fetch("https://cdn.jsdelivr.net/gh/franks42/uuidv7.cljc@v0.7.3/src/com/github/franks42/uuidv7/core.cljc").then(r => r.text());
 scittle.core.eval_string(src);
 scittle.core.eval_string("(require '[com.github.franks42.uuidv7.core :as uuidv7])");
 scittle.core.eval_string("(println (uuidv7/uuidv7))");

@@ -4,15 +4,16 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 
 ## Current state
 
-- Latest release: **v0.7.2**
-- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.2"}`
-- CLI on GitHub Releases: `uuidv7-v0.7.2` asset
+- Latest release: **v0.7.3**
+- Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.3"}`
+- CLI on GitHub Releases: `uuidv7-v0.7.3` asset
 - 0.7.0: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG.
 - Library tests: 19 on JVM/bb (incl. JVM concurrency test), 20 on CLJS/nbb/Scittle. CLI: 31 tests (bb-only). All pass; `bb test:all` runs every platform.
 - 0.7.0 verified from outside: full JVM, bb and compiled-CLJS suites against the Clojars JAR (local `~/.m2` copy deleted first), full nbb suite via the README git dep, CDN smoke test, release asset; jsdelivr and JAR sources byte-identical to the tag.
 - Runtimes (dev/test): Clojure 1.12.6, ClojureScript 1.12.145, Scittle 0.8.33, bb and nbb `latest` in CI, JDK 21, Node 26.
 - 0.7.1: secure randomness on CLJS/nbb/Scittle (`random-bytes`, no dependencies; 0.7.0 and earlier used `Math.random` there), CI on Node 26, `bb lint` / `bb fmt` cover every Clojure file.
 - 0.7.2: pure generator step (`next-state` takes the clock reading and 14 random bytes; `advance!` draws them before `swap!`), known-answer tests for every branch, CI uses the runner's Chrome (Playwright's download stalled), time limits on every job.
+- 0.7.3: CLI fixes from the Devin review (`parse`/`valid` check every positional argument, `gen` refuses them, a missing flag value is a usage error); `check-uuidv7` returns its argument; concurrency wording; doc test counts. Library generator unchanged.
 
 ## Lint and format
 
