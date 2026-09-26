@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 (Active dev cycle. Run `bb release-check` before tagging the next release.)
 
+## [0.7.3] — 2026-09-26 — CLI: every argument counts
+
+From the Devin review (`docs/Project Review- uuidv7.cljc - devin-swe2.md`).
+The library's generator and output are unchanged.
+
+### Fixed (CLI)
+
+- **`uuidv7 valid` skipped every positional argument after the first:**
+  `uuidv7 valid <good> garbage` exited 0, so the predicate could pass
+  inputs it never checked. `parse` and `valid` now take every positional
+  argument as an input, in order; `gen` refuses positional arguments
+  (usage error, exit 2).
+- **A value flag without its value** (`uuidv7 parse --input`) reported
+  "input file not found: " with an empty name and exit 1. It is now a
+  usage error, "missing value for --input", exit 2.
+
+### Changed
+
+- `check-uuidv7` (private) returns its argument, as the naming convention
+  says `check-…` functions do.
+- The `uuidv7` docstring and README say what "strictly increasing" means
+  under concurrency: the order in which calls update the state, which may
+  differ from the order in which threads receive their UUIDs.
+
+### Documentation and build
+
+- Test counts in CLAUDE.md and `docs/uuidv7-tests.md` updated (they
+  predated 0.7.2's known-answer tests): 19 tests / 252 assertions on the
+  JVM and bb, 20 / 242 on CLJS, nbb and Scittle, 31 CLI tests.
+- The three earlier reviews in `docs/` are labelled historical (they
+  analyze pre-0.7.0 code).
+- `deps.edn`: the unused `:test` alias (a duplicate of `:test-clj`) is
+  removed.
+
 ## [0.7.2] — 2026-09-23 — Pure generator step
 
 ### Changed

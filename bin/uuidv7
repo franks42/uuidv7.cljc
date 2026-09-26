@@ -117,16 +117,16 @@ EXIT CODES:
 
 (defn read-uuid-strings
   "Yields a seq of UUID strings to process. Source priority:
-    1. positional arg (single UUID)
+    1. positional args (every one, in order)
     2. --input <file>  (one UUID per line)
     3. stdin           (one UUID per line)
-   Mutually exclusive: positional + --input -> die-usage."
-  [positional {:keys [input]}]
-  (when (and positional input)
-    (die-usage "positional UUID arg and --input are mutually exclusive"))
+   Mutually exclusive: positionals + --input -> die-usage."
+  [positionals {:keys [input]}]
+  (when (and (seq positionals) input)
+    (die-usage "positional UUID args and --input are mutually exclusive"))
   (cond
-    positional
-    [positional]
+    (seq positionals)
+    positionals
 
     input
     (try (->> (slurp input)
@@ -155,33 +155,35 @@ EXIT CODES:
     (java.util.UUID/fromString s)
     (die 1 "malformed UUID:" s)))
 
-(defn extract-positional
-  "Walk args linearly, pulling out the first non-flag argument as the
-  positional value. Returns [positional rest-args] where rest-args is
-  the remaining flag args. Handles `--flag=value`, `--flag value`, and
-  bare `--flag` boolean shapes correctly so a positional UUID that
-  follows flags is recognised (not silently swallowed by babashka.cli)."
+(defn extract-positionals
+  "Walk args linearly and split them into [positionals flag-args]: every
+  non-flag argument is a positional, in order, and flag-args keeps the
+  flags with their values for babashka.cli. Handles `--flag=value`,
+  `--flag value` and bare `--flag` shapes, so a positional that follows
+  flags is recognised. A value flag with nothing after it is a usage
+  error (exit 2), never a flag with a nil value."
   [args value-flags]
-  (loop [acc [] remaining args]
+  (loop [positionals [] flags [] remaining args]
     (if (empty? remaining)
-      [nil acc]
+      [positionals flags]
       (let [a (first remaining)]
         (cond
           ;; --flag=value : single arg, self-contained
           (and (str/starts-with? a "-") (str/includes? a "="))
-          (recur (conj acc a) (rest remaining))
+          (recur positionals (conj flags a) (rest remaining))
 
           ;; --flag value : two args, consume both
           (and (str/starts-with? a "-") (contains? value-flags a))
-          (recur (conj acc a (second remaining)) (drop 2 remaining))
+          (if (next remaining)
+            (recur positionals (conj flags a (second remaining)) (drop 2 remaining))
+            (die-usage (str "missing value for " a)))
 
           ;; bare --flag : single arg
           (str/starts-with? a "-")
-          (recur (conj acc a) (rest remaining))
+          (recur positionals (conj flags a) (rest remaining))
 
-          ;; first non-flag arg — it's the positional. Done.
           :else
-          [a (into acc (rest remaining))])))))
+          (recur (conj positionals a) flags (rest remaining)))))))
 
 ;; ============================================================
 ;; gen subcommand
@@ -214,8 +216,13 @@ FORMATS:
                               :datetime #inst \"...\" :counter [a bh bl]}
 ")
 
+(def gen-value-flags #{"--format" "--output"})
+
 (defn run-gen [args]
-  (let [opts (try (cli/parse-opts args {:spec gen-spec :restrict true})
+  (let [[positionals flag-args] (extract-positionals args gen-value-flags)
+        _    (when (seq positionals)
+               (die-usage (str "gen: unexpected argument: " (first positionals))))
+        opts (try (cli/parse-opts flag-args {:spec gen-spec :restrict true})
                   (catch clojure.lang.ExceptionInfo e
                     (die-usage (.getMessage e))))]
     (when (:help opts) (println gen-usage) (System/exit 0))
@@ -246,10 +253,10 @@ FORMATS:
   "uuidv7 parse — parse one or more UUIDv7s into structured form
 
 USAGE:
-    uuidv7 parse [<uuid>] [OPTIONS]
+    uuidv7 parse [<uuid>...] [OPTIONS]
 
 INPUT (priority order):
-    1. positional UUID argument:    uuidv7 parse 0195...
+    1. positional UUID arguments:   uuidv7 parse 0195... 0196...
     2. --input <file>               (one UUID per line)
     3. stdin                        (one UUID per line)
 
@@ -267,13 +274,13 @@ ERRORS:
 (def parse-value-flags #{"-i" "--input" "--format" "--output"})
 
 (defn run-parse [args]
-  (let [[positional rest-args] (extract-positional args parse-value-flags)
-        opts (try (cli/parse-opts rest-args {:spec parse-spec :restrict true})
+  (let [[positionals flag-args] (extract-positionals args parse-value-flags)
+        opts (try (cli/parse-opts flag-args {:spec parse-spec :restrict true})
                   (catch clojure.lang.ExceptionInfo e
                     (die-usage (.getMessage e))))]
     (when (:help opts) (println parse-usage) (System/exit 0))
     (validate-format! (:format opts))
-    (let [uuids (read-uuid-strings positional opts)
+    (let [uuids (read-uuid-strings positionals opts)
           out   (make-output-stream opts)]
       (try
         (doseq [s uuids]
@@ -299,10 +306,10 @@ ERRORS:
   "uuidv7 valid — predicate for UUIDv7 input
 
 USAGE:
-    uuidv7 valid [<uuid>] [OPTIONS]
+    uuidv7 valid [<uuid>...] [OPTIONS]
 
 INPUT (priority order):
-    1. positional UUID argument
+    1. positional UUID arguments (every one is checked)
     2. --input <file>               (one UUID per line)
     3. stdin                        (one UUID per line)
 
@@ -319,12 +326,12 @@ EXIT CODES:
 (def valid-value-flags #{"-i" "--input"})
 
 (defn run-valid [args]
-  (let [[positional rest-args] (extract-positional args valid-value-flags)
-        opts (try (cli/parse-opts rest-args {:spec valid-spec :restrict true})
+  (let [[positionals flag-args] (extract-positionals args valid-value-flags)
+        opts (try (cli/parse-opts flag-args {:spec valid-spec :restrict true})
                   (catch clojure.lang.ExceptionInfo e
                     (die-usage (.getMessage e))))]
     (when (:help opts) (println valid-usage) (System/exit 0))
-    (let [uuids (read-uuid-strings positional opts)]
+    (let [uuids (read-uuid-strings positionals opts)]
       (doseq [s uuids]
         (let [u (parse-uuid! s)]
           (when-not (uuidv7/uuidv7? u)

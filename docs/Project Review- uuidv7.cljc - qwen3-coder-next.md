@@ -1,5 +1,12 @@
 ## Project Review: uuidv7.cljc
 
+> **Historical (added 2026-09-26):** this review analyzes code before
+> 0.7.0. Several functions it discusses (`random-bits`,
+> `extract-counter-hex`) no longer exist, and its suggestions were acted on
+> or made moot by 0.7.0–0.7.2 (see CHANGELOG). The current review is
+> `Project Review- uuidv7.cljc - devin-swe2.md`.
+
+
 This is a well-designed, production-ready UUIDv7 implementation. Here's my analysis:
 
 ### Architecture Assessment

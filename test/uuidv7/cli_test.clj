@@ -224,3 +224,34 @@
       (is (= u (:uuid record)))
       (is (= (uuidv7/extract-inst u) (:datetime record)))
       (is (= (vec (uuidv7/extract-counter u)) (:counter record))))))
+
+;; ----- 0.7.3: every argument counts (Devin review, 2026-09-26) -----
+
+(defn- fresh-v7 [] (str (uuidv7/uuidv7)))
+
+(deftest valid-checks-every-positional
+  ;; `valid <good> garbage` used to exit 0: the second argument was
+  ;; silently ignored, so the predicate skipped inputs.
+  (let [good (fresh-v7)]
+    (is (= 1 (:exit (run ["valid" good "garbage-not-a-uuid"]))))
+    (is (= 1 (:exit (run ["valid" good "00000000-0000-4000-8000-000000000000"])))
+        "a v4 in second place fails too")
+    (is (= 0 (:exit (run ["valid" good (fresh-v7) (fresh-v7)]))) "several good ones pass")))
+
+(deftest parse-handles-every-positional
+  (let [a (fresh-v7) b (fresh-v7)
+        {:keys [exit out]} (run ["parse" a b "--format" "uuid"])]
+    (is (= 0 exit))
+    (is (= [a b] (str/split-lines out)) "each positional, in order"))
+  (is (= 1 (:exit (run ["parse" (fresh-v7) "garbage"]))) "a bad second argument is not dropped"))
+
+(deftest gen-refuses-positional-args
+  (let [{:keys [exit err]} (run ["gen" "extra-positional"])]
+    (is (= 2 exit))
+    (is (str/includes? err "unexpected argument"))))
+
+(deftest missing-flag-value-is-a-usage-error
+  (doseq [args [["parse" "--input"] ["valid" "-i"] ["parse" "--format"] ["gen" "--output"]]]
+    (let [{:keys [exit err]} (run args)]
+      (is (= 2 exit) (pr-str args))
+      (is (str/includes? err "missing value") (pr-str args)))))

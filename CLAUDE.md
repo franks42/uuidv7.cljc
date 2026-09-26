@@ -8,7 +8,7 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 - Library on Clojars: `com.github.franks42/uuidv7 {:mvn/version "0.7.2"}`
 - CLI on GitHub Releases: `uuidv7-v0.7.2` asset
 - 0.7.0: strict `uuidv7?`, ex-info from the extractors, canonical-form-only CLI input, CI (`ci.yml`), headless Scittle runner, published-artifact checks (`published.yml`). See CHANGELOG.
-- Library tests: 15 on JVM/bb (incl. JVM concurrency test), 16 on CLJS/nbb/Scittle. CLI: 27 tests (bb-only). All pass; `bb test:all` runs every platform.
+- Library tests: 19 on JVM/bb (incl. JVM concurrency test), 20 on CLJS/nbb/Scittle. CLI: 31 tests (bb-only). All pass; `bb test:all` runs every platform.
 - 0.7.0 verified from outside: full JVM, bb and compiled-CLJS suites against the Clojars JAR (local `~/.m2` copy deleted first), full nbb suite via the README git dep, CDN smoke test, release asset; jsdelivr and JAR sources byte-identical to the tag.
 - Runtimes (dev/test): Clojure 1.12.6, ClojureScript 1.12.145, Scittle 0.8.33, bb and nbb `latest` in CI, JDK 21, Node 26.
 - 0.7.1: secure randomness on CLJS/nbb/Scittle (`random-bytes`, no dependencies; 0.7.0 and earlier used `Math.random` there), CI on Node 26, `bb lint` / `bb fmt` cover every Clojure file.
@@ -54,8 +54,9 @@ bb test:published  # README's pinned CDN tag + nbb git dep (network)
 Every task exits non-zero on a failing test (the compiled-CLJS runner
 uses a `:end-run-tests` report hook, since `cljs.test/run-tests` returns
 no summary). Expected results:
-- **CLJ/BB**: `Ran 15 tests containing 100 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
-- **CLJS/nbb/scittle**: `Ran 16 tests containing 90 assertions. 0 failures, 0 errors.` (includes the Math.random and fail-closed tests)
+- **CLJ/BB**: `Ran 19 tests containing 252 assertions. 0 failures, 0 errors.` (includes JVM concurrency test)
+- **CLJS/nbb/scittle**: `Ran 20 tests containing 242 assertions. 0 failures, 0 errors.` (includes the Math.random and fail-closed tests)
+- **CLI** (`bb test:cli`): `Ran 31 tests containing 89 assertions. 0 failures, 0 errors.`
 
 The raw commands the tasks wrap:
 

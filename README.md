@@ -43,6 +43,8 @@ nbb cannot read JAR files, so use a git dependency instead:
 ;=> #uuid "0195xxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx"
 
 ;; Successive calls are guaranteed strictly increasing
+;; (across threads: in the order calls update the state, which may
+;; differ from the order threads receive them)
 (repeatedly 5 uuidv7/uuidv7)
 
 ;; Extract the embedded timestamp (ms since epoch)

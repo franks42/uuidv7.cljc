@@ -257,13 +257,14 @@
   (boolean (re-matches uuidv7-re (str uuid))))
 
 (defn- check-uuidv7
-  "Throw unless `uuid` is a UUIDv7. An ex-info rather than an assert:
-   asserts can be compiled out, and AssertionError escapes a
+  "`uuid` if it is a UUIDv7; throws otherwise. An ex-info rather than an
+   assert: asserts can be compiled out, and AssertionError escapes a
    (catch Exception ...)."
   [fname uuid]
   (when-not (uuidv7? uuid)
     (throw (ex-info (str fname ": not a UUIDv7: " (pr-str uuid))
-                    {:type ::not-uuidv7 :value uuid}))))
+                    {:type ::not-uuidv7 :value uuid})))
+  uuid)
 
 ;; ---------------------------------------------------------------------------
 ;; Public API
@@ -288,7 +289,10 @@
    Returns java.util.UUID on JVM/BB, cljs.core/UUID on CLJS/nbb/scittle.
 
    Successive calls from the same generator are guaranteed to produce
-   strictly increasing UUIDs, even within the same millisecond."
+   strictly increasing UUIDs, even within the same millisecond. Under
+   concurrency the order is the order in which calls update the state:
+   two threads may *receive* their UUIDs in the opposite order, so sort
+   by value, not by arrival."
   []
   (advance! state))
 

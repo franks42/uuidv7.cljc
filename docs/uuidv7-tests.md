@@ -4,7 +4,7 @@ This document describes the test suite for uuidv7.cljc and how tests are run acr
 
 ## Test Coverage
 
-A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms: 16 tests / 90 assertions on CLJS, nbb and Scittle, 15 / 100 on the JVM and bb (the JVM/bb suite adds a concurrency test; the CLJS suite adds two randomness-source tests). `test/uuidv7/cli_test.clj` covers `bin/uuidv7` (27 tests, bb only), and `test/published/published_smoke.cljs` smoke-tests released versions.
+A single shared test file — `test/uuidv7/core_test.cljc` — runs on all platforms: 20 tests / 242 assertions on CLJS, nbb and Scittle, 19 / 252 on the JVM and bb (the JVM/bb suite adds a concurrency test; the CLJS suite adds two randomness-source tests; both include the 0.7.2 known-answer tests). `test/uuidv7/cli_test.clj` covers `bin/uuidv7` (31 tests, bb only), and `test/published/published_smoke.cljs` smoke-tests released versions.
 
 ### 1. UUID Generation (`test-uuidv7-generation`)
 
