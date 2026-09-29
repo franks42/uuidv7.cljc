@@ -14,6 +14,7 @@ Portable UUIDv7 (RFC 9562) library. Single source file, zero runtime dependencie
 - 0.7.1: secure randomness on CLJS/nbb/Scittle (`random-bytes`, no dependencies; 0.7.0 and earlier used `Math.random` there), CI on Node 26, `bb lint` / `bb fmt` cover every Clojure file.
 - 0.7.2: pure generator step (`next-state` takes the clock reading and 14 random bytes; `advance!` draws them before `swap!`), known-answer tests for every branch, CI uses the runner's Chrome (Playwright's download stalled), time limits on every job.
 - 0.7.3: CLI fixes from the Devin review (`parse`/`valid` check every positional argument, `gen` refuses them, a missing flag value is a usage error); `check-uuidv7` returns its argument; concurrency wording; doc test counts. Library generator unchanged.
+- As of 2026-09-28: no work planned; used by signet 0.10.0. Conventions shared with signet, nacljc and cedn (`!` only for lasting writes; Pure / Impure / Throws docstrings; commit and push only when asked).
 
 ## Lint and format
 
